@@ -1,6 +1,15 @@
 #! /usr/bin/env bqn
 
-# Javascript/JSON formatting
+args←•args
+return ← 1≡⊑args
+args↓˜↩ return
+path←(⊑args)∾"/src/"
+args↓˜↩1
+Import ← {𝕨•Import path∾𝕩}
+FChars ← {𝕨•FChars path∾𝕩}
+FLines ← {𝕨•FLines path∾𝕩}
+
+# python formatting
 L ← "["∾"]"∾˜(0<≠)◶⟨"",1↓·∾","⊸∾¨⟩ # Native list/array
 Ind ← {∾𝕨‿"["‿𝕩‿"]"}          # Native list/array indexing
 Cat ← {∾𝕨‿".concat("‿𝕩‿")"}   # Native list/array concatenation (like ∾)
@@ -12,15 +21,15 @@ Esc←{
   𝕩 ↩ i ⊏⟜out⌾((i<≠out)⊸/) 𝕩  # Replace
   ∾(i<≠in) /⟜"\"⊸∾¨ 𝕩         # Insert \
 }⍟(0<≠)
-Str ← "str("""∾Esc∾""")"˜     # A BQN string
+Str ← """"∾Esc∾""""˜          # A BQN string
 Char ← "'"(∾∾⊣)Esc∘⥊          # A BQN character
 F ← •Repr                     # Native format
-FP ← ∞⊸=◶⟨F,"Infinity"⟩       # Format positive number
+FP ← ∞⊸=◶⟨F,"math.inf"⟩       # Format positive number
 Num ← 0⊸≤◶⟨"-"∾FP∘|,FP⟩       # Format number
 
-glyphs ← •Import "glyphs.bqn"
-_getComp ← { (4+useInd) ↑ (𝕗 •Import "c.bqn"){𝔽} }
-useInd ← "-i"≡⊑args←•args ⋄ args↓˜↩useInd
+glyphs ← Import "glyphs.bqn"
+_getComp ← { (4+useInd) ↑ (𝕗 Import "c.bqn"){𝔽} }
+useInd ← "-i"≡⊑args ⋄ args↓˜↩useInd
 Comp ← ((<"runtime" Ind F)¨↕≠∾glyphs) glyphs _getComp ⊢
 J ← ∾∾⟜(@+10)¨
 Fconst ← ≡◶⟨@⊸≤◶{Num𝕩}‿Char, Str, ⊑⟩
@@ -29,12 +38,12 @@ Long ← ∾ (≠↑1‿4/⟨"  "⊸∾⋄((@+10)∾" ,")⊸∾⟩˙) {𝕎𝕩}
 LFC ← Long∘Fout∘Comp
 
 RT ← {
-  src‿need‿inputs←(𝕨∾1↓𝕩)•Import"pr.bqn"
+  src‿need‿inputs←(𝕨∾1↓𝕩) Import"pr.bqn"
   pr←"runtime_0"‿"provide"{(∾𝕨<⊸(<∘Ind⟜F¨)⟜(↕≠)¨𝕩)⊏˜(∾𝕩)⊐∾need}○((-1+1=𝕨)⊸↑)inputs
   Long Fout pr need _getComp src
 }
 CArg ← {Num↩π⊸=◶Num‿"Math.PI" ⋄ J (¯5⊸↓∾𝕩˙)⌾⊑ •FLines "c.bqn"}
-SVG ← {∾⟨"Modify←GetHighlights←⊢⋄"⟩∾ •FChars∘∾⟜".bqn"¨ "../svg"‿𝕩}
+SVG ← {∾⟨"Modify←GetHighlights←⊢⋄"⟩∾  FChars∘∾⟜".bqn"¨ "../svg"‿𝕩}
 
 •Out (⊑"r"‿"r0"‿"r1"‿"c"‿"cc"‿"f"‿"e"‿"p"⊐⊏)◶⟨
   2⊸RT, 0⊸RT, 1⊸RT
