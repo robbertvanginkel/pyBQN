@@ -1,10 +1,11 @@
-import ast
 from dataclasses import dataclass, field
 from enum import IntEnum
+from typing import Optional
+import ast
+import functools
 import math
 import select
 import sys
-from typing import Optional
 
 # https://gist.github.com/dzaima/e7b24e10cf6ac33f62bf8cfd80758d4b
 
@@ -18,17 +19,8 @@ class Frame:
     def __init__(self, parent: Optional['Frame'], nvars: int, args: list) -> None:
         self.parent = parent
         self.slots = [Slot(0, i) for i in range(nvars)]
-        for i, arg in enumerate(args):
+        for i, arg in enumerate(args[:nvars]):
             self.slots[i].value = arg
-
-    def call(self, F, x = None, w = None):
-        match F:
-            case int():
-                return F
-            case Block():
-                return F(self, [w, x])
-            case _:
-                raise Exception(f"Unimplemented call type {F}")
 
 @dataclass
 class Block:
@@ -44,7 +36,7 @@ class Block:
     block_immediate: Immediateness
     index: int | list[list[int]]
 
-    def __call__(self, parent = None):
+    def __call__(self, parent: Frame = None):
         if self.block_type == Block.Type.FUNIMM:
             if self.block_immediate == Block.Immediateness.IMMEDIATE:
                 if type(self.index) is int:
@@ -52,8 +44,17 @@ class Block:
                 raise Exception(f"Unimplemented block indexes {self}")
             elif self.block_immediate == Block.Immediateness.DEFERRED:
                 if type(self.index) is int:
-                    pass # TODO
-                raise Exception(f"Unimplemented block indexes {self}")
+                    return functools.partial(self.vm.bodies[self.index], parent)
+                elif type(self.index) is list:
+                    def deferred_block(parent: Frame, args: list):
+                       _, _, w = args
+                       if w is None:
+                           return self.vm.bodies[self.index[0][0]](parent, args) # TODO: all blocks
+                       else:
+                           return self.vm.bodies[self.index[1][0]](parent, args) # TODO: all blocks
+                    return functools.partial(deferred_block, parent)
+                else:
+                    raise Exception(f"unknown block indexes type {self}")
         else:
             raise Exception(f"Unimplemented block type/immediate {self}")
 
@@ -65,7 +66,7 @@ class Body:
     names: list[int] = field(default_factory=list)
     exported: list[bool] = field(default_factory=list)
 
-    def __call__(self, parent: Frame, args):
+    def __call__(self, parent: Frame, args: list):
         frame = Frame(parent, self.nvars, args)
         pc = self.start
         stack = []
@@ -79,23 +80,35 @@ class Body:
                     pc += 2
                 case 0x01: # DFND
                     arg = self.vm.bc[pc+1]
-                    stack.append(self.vm.blocks[arg])
+                    stack.append(self.vm.blocks[arg](frame))
                     pc += 2
                 case 0x06: # POPS
                     _ = stack.pop()
                     pc += 1
                 case 0x07: # RETN
                     return stack.pop()
+                case 0x0B: # LSTO
+                    length = self.vm.bc[pc+1]
+                    asList = stack[-length:]
+                    del stack[-length:]
+                    stack.append(asList)
+                    pc += 2
+                case 0x0C: # LSTM
+                    length = self.vm.bc[pc+1]
+                    asList = stack[-length:]
+                    del stack[-length:]
+                    stack.append(asList)
+                    pc += 2
                 case 0x10: # FN1C
                     S = stack.pop()
                     x = stack.pop() 
-                    stack.append(frame.call(S, x))
+                    stack.append(self.__call(S, x))
                     pc += 1
                 case 0x11: # FN2C
                     w = stack.pop()
                     S = stack.pop()
                     x = stack.pop()
-                    stack.append(frame.call(S, x, w))
+                    stack.append(self.__call(S, x, w))
                     pc += 1
                 case 0x21: # VARM
                     D, I = self.vm.bc[pc+1:pc+3]
@@ -112,21 +125,41 @@ class Body:
                 case 0x30: # SETN
                     x = stack.pop()
                     r = stack.pop()
-                    x.value = r
-                    stack.append(r)
+                    self.__setslot(x, r, allow_uninitialized=True)
+                    stack.append(r) # TODO: verify this?
                     pc += 1
                 case 0x31: # SETU
                     x = stack.pop()
                     r = stack.pop()
-                    if x.value is None:
-                        raise Exception("uninitialized variable")
-                    x.value = r
-                    stack.append(r)
+                    self.__setslot(x, r, allow_uninitialized=False)
+                    stack.append(r)# TODO: verify this?
                     pc += 1
                 case _:
                     raise Exception(f"Unknown opcode at {pc}: 0x{opcode:02x}, topstack: {stack[-10:]}")
 
+    @staticmethod
+    def __setslot(slot: Slot | list[Slot], new_value, allow_uninitialized: bool = False):
+        if type(slot) is Slot:
+            if not allow_uninitialized and slot.value is None:
+                raise Exception("uninitialized variable")
+            slot.value = new_value
+        elif type(slot) is list:
+            for slot, value in zip(slot, new_value):
+                if not allow_uninitialized and slot.value is None:
+                    raise Exception("uninitialized variable")
+                slot.value = value
+        else:
+            raise Exception(f"Unknown slot type {slot}")
 
+    @staticmethod
+    def __call(F, x = None, w = None):
+        match F:
+            case int():
+                return F
+            case functools.partial():
+                return F([F, x, w])
+            case _:
+                raise Exception(f"Unimplemented call type {F}")
 
 class VM:
     provide = [None]*23
