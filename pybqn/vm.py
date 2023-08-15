@@ -2,7 +2,6 @@
 from dataclasses import dataclass, field, make_dataclass
 from enum import IntEnum
 from typing import Any, Optional
-from types import new_class
 import functools
 import math
 
@@ -11,7 +10,7 @@ from traitlets import default
 # https://gist.github.com/dzaima/e7b24e10cf6ac33f62bf8cfd80758d4b
 
 # constants
-_NOTHING = None # make_dataclass("Nothing", [], frozen=True)()
+_NOTHING = make_dataclass("Nothing", [], frozen=True)() # could be None at this point?
 
 IndexedSlot = make_dataclass("IndexedSlot", [("depth", int), ("idx", int)])
 
@@ -23,8 +22,8 @@ class Slot(IndexedSlot):
 
     @property
     def value(self):
-        if not self.set:
-            raise Exception("uninitialized variable")
+        if not self.set or self.cleared:
+            raise Exception(f"invalid slot access {self}")
         return self._value
 
     @value.setter
@@ -71,17 +70,32 @@ class Block:
                 if type(self.index) is int:
                     return functools.partial(self.vm.bodies[self.index], parent)
                 elif type(self.index) is list:
-                    def deferred_block(parent: Frame, args: list):
-                       _, _, w = args
-                       if w is _NOTHING:
-                           return self.vm.bodies[self.index[0][0]](parent, args) # TODO: all blocks
-                       else:
-                           return self.vm.bodies[self.index[1][0]](parent, args) # TODO: all blocks
-                    return functools.partial(deferred_block, parent)
+                    return functools.partial(self.deferred, parent)
                 else:
                     raise Exception(f"unknown block indexes type {self}")
+        elif self.block_type == Block.Type.N1MOD or self.block_type == Block.Type.N2MOD:
+            if self.block_immediate == Block.Immediateness.IMMEDIATE:
+                if type(self.index) is int:
+                    return self.modifier(parent, []) # not sure about this
+                raise Exception(f"Unimplemented block indexes {self}")
+            elif self.block_immediate == Block.Immediateness.DEFERRED:
+                if type(self.index) is int:
+                    return functools.partial(self.modifier, parent)
+                raise Exception(f"Unimplemented block indexes {self}")
+            else:
+                raise Exception(self)
         else:
             raise Exception(f"Unimplemented block type/immediate {self}")
+        
+    def deferred(self, parent: Frame, args: list):
+        _, _, w, *_ = args
+        if w is _NOTHING:
+            return self.vm.bodies[self.index[0][0]](parent, args) # TODO: all blocks
+        else:
+            return self.vm.bodies[self.index[1][0]](parent, args) # TODO: all blocks
+
+    def modifier(self, parent: Frame, modifier_args: list):
+        return functools.partial(lambda args: self.vm.bodies[self.index](parent, args + modifier_args))
 
 @dataclass
 class Body:
@@ -152,6 +166,17 @@ class Body:
                     x = stack.pop()
                     stack.append(self.__call(S, x, w))
                     pc += 1
+                case 0x1A: # MD1C
+                    F = stack.pop()
+                    R = stack.pop() 
+                    stack.append(self.__modifier(R, F))
+                    pc += 1
+                case 0x1B: # MD2C
+                    F = stack.pop()
+                    R = stack.pop() 
+                    G = stack.pop()
+                    stack.append(self.__modifier(R, F, G))
+                    pc += 1
                 case 0x20: # VARO
                     D, I = self.vm.bc[pc+1:pc+3]
                     if D != 0:
@@ -192,12 +217,12 @@ class Body:
     @staticmethod
     def __setslot(slot: Slot | list[Slot], new_value, allow_uninitialized: bool = False):
         if type(slot) is Slot:
-            if not allow_uninitialized and slot.value is None:
+            if not allow_uninitialized and slot.set is False:
                 raise Exception("uninitialized variable")
             slot.value = new_value
         elif type(slot) is list:
             for slot, value in zip(slot, new_value):
-                if not allow_uninitialized and slot.value is None:
+                if not allow_uninitialized and slot.set is False:
                     raise Exception("uninitialized variable")
                 if slot is not _NOTHING:
                     slot.value = value
@@ -217,6 +242,14 @@ class Body:
                 return F([F, x, w])
             case _:
                 raise Exception(f"Unimplemented call type {F}")
+    
+    @staticmethod
+    def __modifier(R, f = _NOTHING, g = _NOTHING): # unify with __call?
+        match R:
+            case functools.partial():
+                return R([R, f, g]) # pass _NOTHINGs?
+            case _:
+                raise Exception(f"Unimplemented modifier type {R}")
 
 class VM:
     provide = [None]*23
@@ -235,7 +268,7 @@ class VM:
         return self.blocks[0](None)
 
 if __name__ == "__main__":
-    input = [[0,0,1,1,16,7,32,0,1,34,0,1,34,0,2,1,2,18,19,7,34,0,2,7],[5],[[0,1,0],[0,0,1],[0,0,[[],[2]]]],[[0,0],[6,3],[20,3]]]
+    input = [[0,1,1,1,0,0,26,16,7,34,0,4,6,34,0,1,7],[4,6],[[0,1,0],[1,0,1]],[[0,0],[9,5]]]
     print(f"""bc:        {input[0]}
 constants: {input[1]},
 blocks:    {input[2]}, 
