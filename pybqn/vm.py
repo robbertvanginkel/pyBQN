@@ -1,19 +1,44 @@
-from dataclasses import dataclass, field
+# -*- coding: utf-8 -*-
+from dataclasses import dataclass, field, make_dataclass
 from enum import IntEnum
-from typing import Optional
-import ast
+from typing import Any, Optional
+from types import new_class
 import functools
 import math
-import select
-import sys
+
+from traitlets import default
 
 # https://gist.github.com/dzaima/e7b24e10cf6ac33f62bf8cfd80758d4b
 
+# constants
+_NOTHING = None # make_dataclass("Nothing", [], frozen=True)()
+
+IndexedSlot = make_dataclass("IndexedSlot", [("depth", int), ("idx", int)])
+
 @dataclass
-class Slot:
-    depth: int = 0
-    idx: int = 0
-    value = None
+class Slot(IndexedSlot):
+    cleared: bool = field(init=False, default=False)
+    set: bool = field(init=False, default=False)
+    _value: Any = field(init=False, default=_NOTHING)
+
+    @property
+    def value(self):
+        if not self.set:
+            raise Exception("uninitialized variable")
+        return self._value
+
+    @value.setter
+    def value(self, value):
+        if type(value) is Slot:
+            value = value.value
+        self.set = True
+        self._value = value
+
+    @value.deleter
+    def value(self):
+        self.cleared = True
+        del self._value
+
 
 class Frame:
     def __init__(self, parent: Optional['Frame'], nvars: int, args: list) -> None:
@@ -48,7 +73,7 @@ class Block:
                 elif type(self.index) is list:
                     def deferred_block(parent: Frame, args: list):
                        _, _, w = args
-                       if w is None:
+                       if w is _NOTHING:
                            return self.vm.bodies[self.index[0][0]](parent, args) # TODO: all blocks
                        else:
                            return self.vm.bodies[self.index[1][0]](parent, args) # TODO: all blocks
@@ -102,37 +127,64 @@ class Body:
                 case 0x10: # FN1C
                     S = stack.pop()
                     x = stack.pop() 
+                    if x is _NOTHING:
+                        raise Exception("𝕩 may not be ·")
                     stack.append(self.__call(S, x))
                     pc += 1
                 case 0x11: # FN2C
+                    w = stack.pop()
+                    if w is _NOTHING:
+                        raise Exception("𝕨 may not be ·")
+                    S = stack.pop()
+                    x = stack.pop()
+                    if x is _NOTHING:
+                        raise Exception("𝕨 may not be ·")
+                    stack.append(self.__call(S, x, w))
+                    pc += 1
+                case 0x12: # FN10
+                    S = stack.pop()
+                    x = stack.pop() 
+                    stack.append(self.__call(S, x))
+                    pc += 1
+                case 0x13: # FN20
                     w = stack.pop()
                     S = stack.pop()
                     x = stack.pop()
                     stack.append(self.__call(S, x, w))
                     pc += 1
+                case 0x20: # VARO
+                    D, I = self.vm.bc[pc+1:pc+3]
+                    if D != 0:
+                        raise Exception("must implement parent frames")
+                    stack.append(frame.slots[I].value)
+                    pc += 3                    
                 case 0x21: # VARM
                     D, I = self.vm.bc[pc+1:pc+3]
                     if D != 0:
                         raise Exception("must implement parent frames")
                     stack.append(frame.slots[I])
                     pc += 3
-                case 0x22: # VARO
+                case 0x22: # VARU
                     D, I = self.vm.bc[pc+1:pc+3]
                     if D != 0:
                         raise Exception("must implement parent frames")
                     stack.append(frame.slots[I].value)
-                    pc += 3 
+                    del frame.slots[I].value
+                    pc += 3
+                case 0x2C: # NOTM
+                    stack.append(_NOTHING) # TODO: Dubious
+                    pc += 1
                 case 0x30: # SETN
-                    x = stack.pop()
-                    r = stack.pop()
-                    self.__setslot(x, r, allow_uninitialized=True)
-                    stack.append(r) # TODO: verify this?
+                    ref = stack.pop()
+                    val = stack.pop()
+                    self.__setslot(ref, val, allow_uninitialized=True)
+                    stack.append(val) # TODO: verify this?
                     pc += 1
                 case 0x31: # SETU
-                    x = stack.pop()
-                    r = stack.pop()
-                    self.__setslot(x, r, allow_uninitialized=False)
-                    stack.append(r)# TODO: verify this?
+                    ref = stack.pop()
+                    val = stack.pop()
+                    self.__setslot(ref, val, allow_uninitialized=False)
+                    stack.append(val)# TODO: verify this?
                     pc += 1
                 case _:
                     raise Exception(f"Unknown opcode at {pc}: 0x{opcode:02x}, topstack: {stack[-10:]}")
@@ -147,12 +199,17 @@ class Body:
             for slot, value in zip(slot, new_value):
                 if not allow_uninitialized and slot.value is None:
                     raise Exception("uninitialized variable")
-                slot.value = value
+                if slot is not _NOTHING:
+                    slot.value = value
+        elif slot is _NOTHING:
+            pass
         else:
             raise Exception(f"Unknown slot type {slot}")
 
     @staticmethod
-    def __call(F, x = None, w = None):
+    def __call(F, x = _NOTHING, w = _NOTHING):
+        if x is _NOTHING:
+            return _NOTHING 
         match F:
             case int():
                 return F
@@ -176,17 +233,11 @@ class VM:
 
     def __call__(self):
         return self.blocks[0](None)
-                    
-
 
 if __name__ == "__main__":
-    input = [[0,0,1,1,16,7,34,0,1,7],[6],[[0,1,0],[0,0,1]],[[0,0],[6,3]]]
-    if select.select([sys.stdin, ], [], [], 0.0)[0]:
-        input = ast.literal_eval(sys.stdin.read())
-
+    input = [[0,0,1,1,16,7,32,0,1,34,0,1,34,0,2,1,2,18,19,7,34,0,2,7],[5],[[0,1,0],[0,0,1],[0,0,[[],[2]]]],[[0,0],[6,3],[20,3]]]
     print(f"""bc:        {input[0]}
 constants: {input[1]},
 blocks:    {input[2]}, 
 bodies:    {input[3]}""")
     print(VM(*input)())
-
