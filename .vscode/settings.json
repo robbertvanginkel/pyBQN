@@ -19,4 +19,5 @@
     "python.testing.pytestEnabled": false,
     "python.testing.unittestEnabled": true,
     "editor.fontFamily": "JetBrains Mono",
+    "python.analysis.typeCheckingMode": "basic",
 }
