@@ -2,6 +2,7 @@
 from dataclasses import dataclass, field, make_dataclass
 from enum import IntEnum
 from typing import Any, Optional
+from collections.abc import Callable
 import functools
 import math
 
@@ -52,6 +53,7 @@ class Frame:
         else:
             return self.parent.slot(n_up-1, index)
 
+
 @dataclass
 class Block:
     class Immediateness(IntEnum):
@@ -67,41 +69,37 @@ class Block:
     index: int | list[list[int]]
 
     def __call__(self, parent: Frame = None):
-        if self.block_type == Block.Type.FUNIMM:
-            if self.block_immediate == Block.Immediateness.IMMEDIATE:
-                if type(self.index) is int:
-                    return self.vm.bodies[self.index](parent, [])
-                raise Exception(f"Unimplemented block indexes {self}")
-            elif self.block_immediate == Block.Immediateness.DEFERRED:
-                if type(self.index) is int:
-                    return functools.partial(self.vm.bodies[self.index], parent)
-                elif type(self.index) is list:
-                    return functools.partial(self.deferred, parent)
-                else:
-                    raise Exception(f"unknown block indexes type {self}")
-        elif self.block_type == Block.Type.N1MOD or self.block_type == Block.Type.N2MOD:
-            if self.block_immediate == Block.Immediateness.IMMEDIATE:
-                if type(self.index) is int:
-                    return self.modifier(parent, []) # not sure about this
-                raise Exception(f"Unimplemented block indexes {self}")
-            elif self.block_immediate == Block.Immediateness.DEFERRED:
-                if type(self.index) is int:
-                    return functools.partial(self.modifier, parent)
-                raise Exception(f"Unimplemented block indexes {self}")
-            else:
-                raise Exception(self)
-        else:
-            raise Exception(f"Unimplemented block type/immediate {self}")
+        runner: Callable[[Frame, list]]
+        match self.block_type:
+            case Block.Type.FUNIMM:
+                runner = self.run_bc
+            case Block.Type.N1MOD | Block.Type.N2MOD:
+                runner = self.modifier
+            case _:
+                raise Exception(f"unknonwn block_type {self}")
+
+        match self.block_immediate:
+            case Block.Immediateness.IMMEDIATE:
+                return runner(parent, [])
+            case Block.Immediateness.DEFERRED:
+                return functools.partial(runner, parent)
+            case _:
+                raise Exception(f"unknonwn block_immediate {self}")
         
-    def deferred(self, parent: Frame, args: list):
-        _, _, w, *_ = args
-        if w is _NOTHING:
-            return self.vm.bodies[self.index[0][0]](parent, args) # TODO: all blocks
+    def run_bc(self, parent: Frame, args: list):
+        if type(self.index) is int:
+            return self.vm.bodies[self.index](parent, args)
+        elif type(self.index) is list:
+            _, _, w, *_ = args
+            if w is _NOTHING:
+                return self.vm.bodies[self.index[0][0]](parent, args) # TODO: all blocks
+            else:
+                return self.vm.bodies[self.index[1][0]](parent, args) # TODO: all blocks
         else:
-            return self.vm.bodies[self.index[1][0]](parent, args) # TODO: all blocks
+            raise Exception("unreachable")
 
     def modifier(self, parent: Frame, modifier_args: list):
-        return functools.partial(lambda args: self.vm.bodies[self.index](parent, args + modifier_args))
+        return lambda args: self.run_bc(parent, args + modifier_args)
 
 @dataclass
 class Body:
@@ -175,11 +173,7 @@ class Body:
                 case 0x14: # TR2D
                     G = stack.pop()
                     H = stack.pop()
-                    stack.append(
-                        functools.partial(
-                            lambda args: self.__call(G, self.__call(H, args[1], args[2]))
-                        ),
-                    )
+                    stack.append(lambda args: self.__call(G, self.__call(H, args[1], args[2])))
                     pc += 1
                 case 0x15 | 0x17: # TR3D, TR3O
                     F = stack.pop()
@@ -188,26 +182,24 @@ class Body:
                     G = stack.pop()
                     H = stack.pop()
                     stack.append(
-                        functools.partial(
-                            lambda args: self.__call(
-                                G, 
-                                self.__call(H, args[1], args[2]),
-                                self.__call(F, args[1], args[2]) if F is not _NOTHING else _NOTHING,
-                            )
-                        ),
+                        lambda args: self.__call(
+                            G, 
+                            self.__call(H, args[1], args[2]),
+                            self.__call(F, args[1], args[2]) if F is not _NOTHING else _NOTHING,
+                        )
                     )
                     pc += 1
                     pass
                 case 0x1A: # MD1C
                     F = stack.pop()
                     R = stack.pop() 
-                    stack.append(self.__modifier(R, F))
+                    stack.append(self.__call(R, F))
                     pc += 1
                 case 0x1B: # MD2C
                     F = stack.pop()
                     R = stack.pop() 
                     G = stack.pop()
-                    stack.append(self.__modifier(R, F, G))
+                    stack.append(self.__call(R, F, G))
                     pc += 1
                 case 0x20: # VARO
                     D, I = self.vm.bc[pc+1:pc+3]
@@ -276,21 +268,13 @@ class Body:
     def __call(F, x = _NOTHING, w = _NOTHING):
         if x is _NOTHING:
             return _NOTHING 
+        if callable(F):
+            return F([F, x, w])
         match F:
             case int():
                 return F
-            case functools.partial():
-                return F([F, x, w])
             case _:
                 raise Exception(f"Unimplemented call type {type(F)} (x={x}, w={w})")
-    
-    @staticmethod
-    def __modifier(R, f = _NOTHING, g = _NOTHING): # unify with __call?
-        match R:
-            case functools.partial():
-                return R([R, f, g]) # pass _NOTHINGs?
-            case _:
-                raise Exception(f"Unimplemented modifier type {R}")
 
 class VM:
     provide = [None]*23
