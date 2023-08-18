@@ -5,8 +5,6 @@ from typing import Any, Optional
 import functools
 import math
 
-from traitlets import default
-
 # https://gist.github.com/dzaima/e7b24e10cf6ac33f62bf8cfd80758d4b
 
 # constants
@@ -40,11 +38,19 @@ class Slot(IndexedSlot):
 
 
 class Frame:
+    depth: int = 0
     def __init__(self, parent: Optional['Frame'], nvars: int, args: list) -> None:
+        self.depth = parent.depth + 1 if parent else 0
         self.parent = parent
-        self.slots = [Slot(0, i) for i in range(nvars)]
+        self.slots = [Slot(self.depth, i) for i in range(nvars)]
         for i, arg in enumerate(args[:nvars]):
             self.slots[i].value = arg
+
+    def slot(self, n_up: int, index: int):
+        if n_up == 0:
+            return self.slots[index]
+        else:
+            return self.parent.slot(n_up-1, index)
 
 @dataclass
 class Block:
@@ -155,17 +161,43 @@ class Body:
                         raise Exception("𝕨 may not be ·")
                     stack.append(self.__call(S, x, w))
                     pc += 1
-                case 0x12: # FN10
+                case 0x12: # FN1O
                     S = stack.pop()
                     x = stack.pop() 
                     stack.append(self.__call(S, x))
                     pc += 1
-                case 0x13: # FN20
+                case 0x13: # FN2O
                     w = stack.pop()
                     S = stack.pop()
                     x = stack.pop()
                     stack.append(self.__call(S, x, w))
                     pc += 1
+                case 0x14: # TR2D
+                    G = stack.pop()
+                    H = stack.pop()
+                    stack.append(
+                        functools.partial(
+                            lambda args: self.__call(G, self.__call(H, args[1], args[2]))
+                        ),
+                    )
+                    pc += 1
+                case 0x15 | 0x17: # TR3D, TR3O
+                    F = stack.pop()
+                    if F is _NOTHING and opcode == 0x15:
+                        raise Exception("𝔽 may not be ·") 
+                    G = stack.pop()
+                    H = stack.pop()
+                    stack.append(
+                        functools.partial(
+                            lambda args: self.__call(
+                                G, 
+                                self.__call(H, args[1], args[2]),
+                                self.__call(F, args[1], args[2]) if F is not _NOTHING else _NOTHING,
+                            )
+                        ),
+                    )
+                    pc += 1
+                    pass
                 case 0x1A: # MD1C
                     F = stack.pop()
                     R = stack.pop() 
@@ -179,21 +211,15 @@ class Body:
                     pc += 1
                 case 0x20: # VARO
                     D, I = self.vm.bc[pc+1:pc+3]
-                    if D != 0:
-                        raise Exception("must implement parent frames")
-                    stack.append(frame.slots[I].value)
+                    stack.append(frame.slot(D, I).value)
                     pc += 3                    
                 case 0x21: # VARM
                     D, I = self.vm.bc[pc+1:pc+3]
-                    if D != 0:
-                        raise Exception("must implement parent frames")
-                    stack.append(frame.slots[I])
+                    stack.append(frame.slot(D, I))
                     pc += 3
                 case 0x22: # VARU
                     D, I = self.vm.bc[pc+1:pc+3]
-                    if D != 0:
-                        raise Exception("must implement parent frames")
-                    stack.append(frame.slots[I].value)
+                    stack.append(frame.slot(D, I).value)
                     del frame.slots[I].value
                     pc += 3
                 case 0x2C: # NOTM
@@ -211,6 +237,21 @@ class Body:
                     self.__setslot(ref, val, allow_uninitialized=False)
                     stack.append(val)# TODO: verify this?
                     pc += 1
+                case 0x32: # SETM
+                    r = stack.pop()
+                    F = stack.pop() 
+                    x = stack.pop()
+                    r_val = r.value if type(r) is Slot else [x.value for x in r]
+                    self.__setslot(r, self.__call(F, x, r_val))
+                    stack.append(r.value if type(r) is Slot else [x.value for x in r])
+                    pc += 1
+                case 0x33: # SETC
+                    r = stack.pop()
+                    F = stack.pop() 
+                    r_val = r.value if type(r) is Slot else [x.value for x in r]
+                    self.__setslot(r, self.__call(F, r_val))
+                    stack.append(r.value if type(r) is Slot else [x.value for x in r])
+                    pc += 1
                 case _:
                     raise Exception(f"Unknown opcode at {pc}: 0x{opcode:02x}, topstack: {stack[-10:]}")
 
@@ -227,7 +268,7 @@ class Body:
                 if slot is not _NOTHING:
                     slot.value = value
         elif slot is _NOTHING:
-            pass
+            pass # TODO: double check this
         else:
             raise Exception(f"Unknown slot type {slot}")
 
@@ -241,7 +282,7 @@ class Body:
             case functools.partial():
                 return F([F, x, w])
             case _:
-                raise Exception(f"Unimplemented call type {F}")
+                raise Exception(f"Unimplemented call type {type(F)} (x={x}, w={w})")
     
     @staticmethod
     def __modifier(R, f = _NOTHING, g = _NOTHING): # unify with __call?
@@ -268,7 +309,7 @@ class VM:
         return self.blocks[0](None)
 
 if __name__ == "__main__":
-    input = [[0,1,1,1,0,0,26,16,7,34,0,4,6,34,0,1,7],[4,6],[[0,1,0],[1,0,1]],[[0,0],[9,5]]]
+    input = [[0,0,33,0,0,48,6,0,1,1,1,33,0,0,50,6,34,0,0,7,34,0,1,7],[3,8],[[0,1,0],[0,0,1]],[[0,1],[20,3]]]
     print(f"""bc:        {input[0]}
 constants: {input[1]},
 blocks:    {input[2]}, 

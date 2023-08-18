@@ -13,8 +13,10 @@
         "𝕨": true,
         "𝔽": true,
         "𝔾": true,
+        "𝕤": true,
+        "𝕗": true,
     },
     "python.testing.pytestEnabled": false,
     "python.testing.unittestEnabled": true,
-    "editor.fontFamily": "JetBrains Mono"
+    "editor.fontFamily": "JetBrains Mono",
 }
