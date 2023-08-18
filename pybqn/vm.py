@@ -149,7 +149,7 @@ class Body:
         stack = Stack()
         while True:
             opcode = self.vm.bc[pc]
-            print(f"pc: {pc:02d}, op: 0x{opcode:02x}, args? {self.vm.bc[pc:pc+3]}, stack: {stack}")
+            print(f"pc: {pc:02d}, op: 0x{opcode:02x}/{opcode}, stack: {stack}")
             match opcode:
                 case 0x00: # PUSH
                     arg = self.vm.bc[pc+1]
@@ -205,7 +205,6 @@ class Body:
                         )
                     )
                     pc += 1
-                    pass
                 case 0x1A: # MD1C
                     R, F = stack.popn(2)
                     stack.append(self.__call(R, F))
@@ -261,7 +260,7 @@ class Body:
         if callable(F):
             return F([F, x, w])
         match F:
-            case int():
+            case int() | list():
                 return F
             case _:
                 raise Exception(f"Unimplemented call type {type(F)} (x={x}, w={w})")
@@ -283,7 +282,7 @@ class VM:
         return self.blocks[0](None)
 
 if __name__ == "__main__":
-    input = [[0,0,33,0,0,48,6,0,1,1,1,33,0,0,50,6,34,0,0,7,34,0,1,7],[3,8],[[0,1,0],[0,0,1]],[[0,1],[20,3]]]
+    input = [[0,0,0,1,0,2,0,3,0,2,1,1,11,2,11,2,11,2,11,2,11,2,1,2,0,0,0,0,1,3,11,2,11,2,26,16,7,34,0,1,7,34,0,1,1,4,16,7,34,0,1,7,34,0,1,33,0,3,33,0,4,12,2,48,6,34,0,0,33,0,5,48,6,0,0,1,5,1,6,26,16,6,1,7,32,0,4,32,0,5,16,26,7,34,0,1,32,1,4,16,7,34,0,0,6,1,8,33,1,5,49,7,34,0,1,33,0,5,33,0,6,12,2,48,6,34,0,6,34,0,4,16,7,34,0,0,6,1,9,7,34,0,1,33,0,3,33,0,4,12,2,48,6,34,0,3,7],[0,1,4,3],[[0,1,0],[0,0,1],[1,1,2],[0,0,3],[0,0,4],[1,1,5],[0,0,6],[1,0,7],[0,0,8],[0,0,9]],[[0,0],[37,3],[41,2],[48,3],[52,6],[93,2],[101,3],[112,7],[133,3],[140,5]]]
     print(f"""bc:        {input[0]}
 constants: {input[1]},
 blocks:    {input[2]},
