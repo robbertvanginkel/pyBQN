@@ -54,6 +54,10 @@ class ByteCodeTest(unittest.TestCase):
             with self.subTest(case=case):
                 self.assertEqual(VM(*input)(), expected)
 
+class RuntimeTest(unittest.TestCase):
+
+    def test_runtime(self):
+        self.assertIsNotNone(VM()())
 
 if __name__ == "__main__":
     unittest.main()
