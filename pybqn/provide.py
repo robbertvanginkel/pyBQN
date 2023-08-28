@@ -2,6 +2,7 @@
 import functools
 import inspect
 import itertools
+import math
 import operator
 
 from .vm import Array, Block, Modifier
@@ -119,26 +120,45 @@ def pminus(x, w):
         case _:
             raise TypeError("-: Cannot subtract non-data values")
 
+@bqnfn
+def ptimes(x, w):
+    match x, w:
+        case int() | float(), int() | float():
+            return w * x
+        case _:
+            raise TypeError("×: Arguments must be numbers")
 
 @bqnfn
 def pdivide(x, w):
     w = w if w is not None else 1
-    if type(x) == int and type(w) == int:
-        floordiv = w // x
-        truediv = w / x
-        return floordiv if floordiv == truediv else truediv
-    else:
-        return w / x
+    try:
+        match x, w:
+            case int(), int():
+                    floordiv = w // x
+                    truediv = w / x
+                    return floordiv if floordiv == truediv else truediv
+            case int() | float(), int() | float():
+                return w / x
+            case _:
+                raise TypeError("÷: Arguments must be numbers")
+    except ZeroDivisionError:
+        return math.inf if w > 0 else -math.inf if w < 0 else math.nan
 
 
 @bqnfn
 def ppower(x, w):
-    raise NotImplementedError("power")
+    if w is None:
+        return math.exp(x)
+    else:
+        return w ** x
 
 
 @bqnfn
 def pfloor(x, w):
-    raise NotImplementedError("floor")
+    if w is None:
+        return math.floor(x) if math.isfinite(x) else x
+    else:
+        return min(x, w)
 
 
 @bqnfn
@@ -198,7 +218,7 @@ provides = [
     passert_fn,
     pplus,
     pminus,
-    bqnfn(lambda x, w: w * x),
+    ptimes,
     pdivide,
     ppower,
     pfloor,
