@@ -21,7 +21,7 @@ Esc←{
   𝕩 ↩ i ⊏⟜out⌾((i<≠out)⊸/) 𝕩  # Replace
   ∾(i<≠in) /⟜"\"⊸∾¨ 𝕩         # Insert \
 }⍟(0<≠)
-Str ← """"∾Esc∾""""˜          # A BQN string
+Str ← "bqnstr("""∾Esc∾""")"˜          # A BQN string
 Char ← "'"(∾∾⊣)Esc∘⥊          # A BQN character
 F ← •Repr                     # Native format
 FP ← ∞⊸=◶⟨F,"math.inf"⟩       # Format positive number

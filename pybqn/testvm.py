@@ -7,6 +7,7 @@ from .vm import Provides
 
 class ByteCodeTest(unittest.TestCase):
     """https://github.com/mlochbaum/BQN/blob/master/test/cases/bytecode.bqn"""
+
     # fmt: off
     cases = {
         "5"                        : (5, [[0,0,7],[5],[[0,1,0]],[[0,0]]]),
@@ -55,5 +56,7 @@ class ByteCodeTest(unittest.TestCase):
         for case, (expected, input) in self.cases.items():
             with self.subTest(case=case):
                 self.assertEqual(VM(*input)(), expected)
+
+
 if __name__ == "__main__":
     unittest.main()

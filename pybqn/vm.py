@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
+from collections.abc import Callable
 from dataclasses import dataclass, field, make_dataclass
 from enum import IntEnum
-import itertools
+from multiprocessing import Value
 from typing import Any, Iterable, List, Optional
-from collections.abc import Callable
 import functools
-import math
+import itertools
+import operator
 
 # https://gist.github.com/dzaima/e7b24e10cf6ac33f62bf8cfd80758d4b
 
@@ -44,7 +45,7 @@ class Slot(IndexedSlot):
             if not allow_uninitialized and ref._set is False:
                 raise Exception("uninitialized variable")
             ref.value = value
-        elif type(ref) is list:
+        elif type(ref) is list or type(ref) is Array:  # TODO: list vs array typing
             assert len(ref) == len(value)
             for s, v in zip(ref, value):
                 Slot.set(s, v, allow_uninitialized)
@@ -59,7 +60,7 @@ class Slot(IndexedSlot):
             return ref.value
         elif ref is _NOTHING:
             return _NOTHING
-        elif type(ref) is list:
+        elif type(ref) is list or type(ref) is Array:  # TODO: list vs array typing
             return [Slot.get(x) for x in ref]
 
 class Frame:
@@ -149,7 +150,7 @@ class Block:
             i = 0 if w is _NOTHING else 1
             if len(self.index[i]) > 1:
                 raise NotImplementedError("multiple body blocks") # TODO: all blocks
-            return self.vm.bodies[self.index[i][0]](parent, args) 
+            return self.vm.bodies[self.index[i][0]](parent, args)
         else:
             raise Exception("unreachable")
 
@@ -177,7 +178,7 @@ class Body:
         stack = Stack()
         while True:
             opcode = self.vm.bc[pc]
-            print(f"pc: {pc:02d}, op: 0x{opcode:02x}/{opcode}, stack: {stack}")
+            # print(f"pc: {pc:02d}, op: 0x{opcode:02x}/{opcode}, stack: {stack}")
             match opcode:
                 case 0x00: # PUSH
                     arg = self.vm.bc[pc+1]
@@ -193,7 +194,7 @@ class Body:
                 case 0x07: # RETN
                     return stack.pop()
                 case 0x0B | 0x0C: # LSTO, LSTM
-                    stack.append(stack.popn(self.vm.bc[pc+1]))
+                    stack.append(Array(stack.popn(self.vm.bc[pc+1])))
                     pc += 2
                 case 0x10: # FN1C
                     x, S = stack.popn(2)
@@ -292,51 +293,121 @@ class Body:
 class Array(list):
     shape: list[int]
     fill: Any
-    def __init__(self, list: Iterable, shape=None, fill: Any = None):
+    def __init__(self, list: Iterable, shape: Optional[list[int]]=None, fill: Any = None):
         super().__init__(list)
         self.shape = shape or [len(self)]
         self.fill = fill
 
 class Provides:
     @staticmethod
-    def type(x):
-        raise NotImplementedError("type") # https://mlochbaum.github.io/BQN/spec/system.html#operation-properties
+    def type(args):
+        _, x, _, *_ = args
+        match x:
+            case Array():
+                return 0
+            case int() | float():
+                return 1
+            case str():
+                assert len(x) == 1 # chars only?
+                return 2
+            case MD1():
+                return 4
+            case MD2():
+                return 5
+            case _:
+                if callable(x):
+                    return 3
+                else:
+                    raise ValueError(f"unknown type {type(x)}")
 
     @staticmethod
-    def fill(x, w):
-        raise NotImplementedError("fill")
+    def fill(args):
+        def to_fill(value):
+            if callable(value):
+                return None
+            elif type(value) is Array:
+                return Array([to_fill(x) for x in value], value.shape, value.fill)
+            elif type(value) is int or type(value) is float:
+                return 0
+            else:
+                return " "
+        _, x, w, *_ = args
+        if w is not _NOTHING:
+            return Array(x[:], x.shape, w)
+        elif x.fill is None:
+            raise ValueError("fill: 𝕩 does not have a fill value")
+        else:
+            return x.fill
 
     @staticmethod
     def log(x, w):
         raise NotImplementedError("log")
 
     @staticmethod
-    def group_len(x, w):
-        raise NotImplementedError("log")
+    def group_len(args):
+        _, x, w, *_ = args
+        l = functools.reduce(max, x, (w if w is not _NOTHING else 0)-1)
+        r = [0] * (l+1)
+        for e in x:
+            if e >= 0:
+                r[e] += 1
+        return Array(r, fill=0)
 
     @staticmethod
     def group_ord(x, w):
         raise NotImplementedError("log")
 
     @staticmethod
-    def assert_fn(x, w):
-        raise NotImplementedError("assert_fn")
+    def assert_fn(args):
+        _, x, w, *_ = args
+        if x != 1:
+            raise ValueError(w if w is not _NOTHING else x)  # TODO: VMError?
+        else:
+            return x
 
     @staticmethod
-    def plus(x, w):
-        raise NotImplementedError("plus")
+    def plus(args):
+        _, x, w, *_ = args
+        if w is _NOTHING:
+            if type(x) is not float and type(x) is not int:
+                raise Exception("+: 𝕩 must be a number")
+            return x
+        else:
+            match w, x:
+                case int()|float(), int()|float():
+                    return w + x
+                case int(), str():
+                    return chr(ord(x) + w)
+                case str(), int():
+                    return chr(ord(w) + x)
+                case str(), str():
+                    raise TypeError("+: Cannot add two characters")
+                case _:
+                    raise TypeError("+: Cannot add non-data values")
 
     @staticmethod
-    def minus(x, w):
-        raise NotImplementedError("minus")
+    def minus(args):
+        _, x, w, *_ = args
+        if w is _NOTHING: # todo: sub strings/number combo behavior
+            return -x
+        else:
+            return w-x
 
     @staticmethod
-    def times(x, w):
-        raise NotImplementedError("times")
+    def times(args):
+        _, x, w, *_ = args
+        return w * x
 
     @staticmethod
-    def divide(x, w):
-        raise NotImplementedError("divide")
+    def divide(args):
+        _, x, w, *_ = args
+        w = w if w is not _NOTHING else 1
+        if type(x) == int and type(w) == int:
+            floordiv = w // x
+            truediv = w / x
+            return floordiv if floordiv == truediv else truediv
+        else:
+            return w / x
 
     @staticmethod
     def power(x, w):
@@ -347,35 +418,47 @@ class Provides:
         raise NotImplementedError("floor")
 
     @staticmethod
-    def equals(x, w):
-        raise NotImplementedError("equals")
+    def equals(args):
+        _, x, w, *_ = args
+        if w is _NOTHING:
+            return len(x.shape) if type(x) is Array else 0
+        else:
+            return 1 if x == w else 0
 
     @staticmethod
-    def leqt(x, w):
-        raise NotImplementedError("leqt")
+    def leqt(args):
+        _, x, w, *_ = args
+        return w <= x
 
     @staticmethod
-    def shape(x, w):
-        raise NotImplementedError("shape")
+    def shape(args):
+        _, x, _, *_ = args
+        return Array(x.shape, fill=0)
 
     @staticmethod
     def deshape(args):
         _, x, w, *_ = args
-        raise NotImplementedError("deshape")
+        return Array(x[:], w if w is not _NOTHING else [len(x)], x.fill)
 
     @staticmethod
-    def pick(x, w):
-        raise NotImplementedError("pick")
+    def pick(args):
+        _, x, w, *_ = args
+        return x[w]
 
     @staticmethod
-    def range(x, w):
-        raise NotImplementedError("range")
+    def range(args):
+        _, x, _, *_ = args
+        return Array(range(x), fill=0)
 
     @staticmethod
     def table(args):
         _, f, _ = args
         def inner_table(args):
-            return Array([f([f, x, w]) for (x, w) in itertools.product(args[1], args[2], )], args[2].shape + args[1].shape)  if args[2] is not _NOTHING else Array([f([f, x, _NOTHING]) for x in args[1]], args[1].shape)
+            _, x, w, *_ = args
+            if w is not _NOTHING:
+                return Array([f([f, xi, wi]) for (xi, wi) in itertools.product(x, w)], x.shape + w.shape)
+            else:
+                return Array([f([f, value, _NOTHING]) for value in x], x.shape)
         return inner_table
 
     @staticmethod
@@ -388,7 +471,13 @@ class Provides:
             if w is not _NOTHING:
                 raise NotImplementedError("scan with 𝕨")
             else:
-                raise NotImplementedError("f")
+                stride = functools.reduce(operator.mul, x.shape[1:], 1)
+                result = [None] * len(x)
+                for i in range(stride):
+                    result[i] = x[i]
+                for i in range(stride, len(x)):
+                    result[i] = f([f, x[i], result[i-stride]])
+                return Array(result, x.shape, x.fill)
         return MD1(inner_scan, *args)
 
     @staticmethod
@@ -435,11 +524,3 @@ class VM:
 
     def __call__(self):
         return self.blocks[0](None)
-
-if __name__ == "__main__":
-    input = [[0,0,0,1,0,2,0,3,0,2,1,1,11,2,11,2,11,2,11,2,11,2,1,2,0,0,0,0,1,3,11,2,11,2,26,16,7,34,0,1,7,34,0,1,1,4,16,7,34,0,1,7,34,0,1,33,0,3,33,0,4,12,2,48,6,34,0,0,33,0,5,48,6,0,0,1,5,1,6,26,16,6,1,7,32,0,4,32,0,5,16,26,7,34,0,1,32,1,4,16,7,34,0,0,6,1,8,33,1,5,49,7,34,0,1,33,0,5,33,0,6,12,2,48,6,34,0,6,34,0,4,16,7,34,0,0,6,1,9,7,34,0,1,33,0,3,33,0,4,12,2,48,6,34,0,3,7],[0,1,4,3],[[0,1,0],[0,0,1],[1,1,2],[0,0,3],[0,0,4],[1,1,5],[0,0,6],[1,0,7],[0,0,8],[0,0,9]],[[0,0],[37,3],[41,2],[48,3],[52,6],[93,2],[101,3],[112,7],[133,3],[140,5]]]
-    print(f"""bc:        {input[0]}
-constants: {input[1]},
-blocks:    {input[2]},
-bodies:    {input[3]}""")
-    print(VM()())
