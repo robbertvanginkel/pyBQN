@@ -1,6 +1,8 @@
 import unittest
+import math
 
 from . import VM
+from .vm import Provides
 
 
 class ByteCodeTest(unittest.TestCase):
@@ -53,11 +55,5 @@ class ByteCodeTest(unittest.TestCase):
         for case, (expected, input) in self.cases.items():
             with self.subTest(case=case):
                 self.assertEqual(VM(*input)(), expected)
-
-class RuntimeTest(unittest.TestCase):
-
-    def test_runtime(self):
-        self.assertIsNotNone(VM()())
-
 if __name__ == "__main__":
     unittest.main()

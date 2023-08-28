@@ -1,5 +1,4 @@
 import ast
-import select
 import sys
 
 from pybqn import VM
