@@ -1,8 +1,6 @@
 import unittest
-import math
 
 from . import VM
-from .vm import Provides
 
 
 class ByteCodeTest(unittest.TestCase):

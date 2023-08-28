@@ -6,6 +6,7 @@ from .vm import Array
 def bqnstr(s: str):
     return Array(s, fill=" ")
 
+# fmt: off
 def r0(provide):
     """bqn utils/cpy.bqn path/to/BQN r0"""
     return [
