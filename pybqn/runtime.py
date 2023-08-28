@@ -1,10 +1,11 @@
-
 import math
 
 from .vm import Array
 
+
 def bqnstr(s: str):
     return Array(s, fill=" ")
+
 
 # fmt: off
 def r0(provide):

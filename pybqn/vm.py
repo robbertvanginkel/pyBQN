@@ -326,5 +326,5 @@ class VM:
         self.bodies = [Body(self, *x) for x in bodies]
         self.blocks = [Block(self, *x) for x in blocks]
 
-    def __call__(self):
+    def __call__(self) -> Any:
         return self.blocks[0](None)

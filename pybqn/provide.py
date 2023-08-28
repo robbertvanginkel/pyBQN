@@ -87,7 +87,7 @@ def passert_fn(x, w):
 def pplus(x, w):
     if w is None:
         if type(x) is not float and type(x) is not int:
-            raise Exception("+: 𝕩 must be a number")
+            raise TypeError("+: 𝕩 must be a number")
         return x
     else:
         match w, x:
@@ -105,10 +105,19 @@ def pplus(x, w):
 
 @bqnfn
 def pminus(x, w):
-    if w is None:  # TODO: sub strings/number combo behavior
-        return -x
-    else:
-        return w - x
+    match w, x:
+        case None, int() | float():
+            return -x
+        case int() | float(), int() | float():
+            return w - x
+        case None | int(), str():
+            raise TypeError("-: Can only negate numbers")
+        case str(), int():
+            return chr(ord(w) - x)
+        case str(), str():
+            return ord(w) - ord(x)
+        case _:
+            raise TypeError("-: Cannot subtract non-data values")
 
 
 @bqnfn
