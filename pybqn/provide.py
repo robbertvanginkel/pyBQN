@@ -10,12 +10,15 @@ from .vm import Array, Block, Modifier
 
 def bqnfn(fn):
     """wraps a function that takes a named special argument (sxwrfg) and returns a function that takes a list of argumnts in vm order"""
-    kwargs = [(i, s) for i, s in enumerate("sxwrfg") if s in inspect.signature(fn).parameters.keys()]
+    params = inspect.signature(fn).parameters.keys()
+    kwargs = [(i, s) for i, s in enumerate("sxwrfg") if s in params]
+
     @functools.wraps(fn)
     def call(args):
         return fn(**{s: args[i] for i, s in kwargs})
 
     return call
+
 
 @bqnfn
 def ptype(x):
@@ -33,7 +36,7 @@ def ptype(x):
             if callable(x):
                 return 3
             else:
-                raise ValueError(f"unknown type {type(x)}")
+                raise TypeError(f"unknown type {type(x)}")
 
 
 @bqnfn
@@ -49,7 +52,7 @@ def pfill(x, w):
             return " "
 
     if w is not None:
-        return Array(x[:], x.shape, w)
+        return Array(x[:], x.shape, to_fill(w))
     elif x.fill is None:
         raise ValueError("fill: 𝕩 does not have a fill value")
     else:
@@ -79,7 +82,7 @@ def pgroup_ord(x, w):
 @bqnfn
 def passert_fn(x, w):
     if x != 1:
-        raise ValueError(w if w is not None else x)  # TODO: VMError?
+        raise AssertionError("".join(w) if w is not None else x)  # TODO: VMError?
     else:
         return x
 
@@ -120,6 +123,7 @@ def pminus(x, w):
         case _:
             raise TypeError("-: Cannot subtract non-data values")
 
+
 @bqnfn
 def ptimes(x, w):
     match x, w:
@@ -128,15 +132,16 @@ def ptimes(x, w):
         case _:
             raise TypeError("×: Arguments must be numbers")
 
+
 @bqnfn
 def pdivide(x, w):
     w = w if w is not None else 1
     try:
         match x, w:
             case int(), int():
-                    floordiv = w // x
-                    truediv = w / x
-                    return floordiv if floordiv == truediv else truediv
+                floordiv = w // x
+                truediv = w / x
+                return floordiv if floordiv == truediv else truediv
             case int() | float(), int() | float():
                 return w / x
             case _:
@@ -150,7 +155,7 @@ def ppower(x, w):
     if w is None:
         return math.exp(x)
     else:
-        return w ** x
+        return w**x
 
 
 @bqnfn
@@ -168,15 +173,35 @@ def pequals(x, w):
     else:
         return 1 if x == w else 0
 
+
+@bqnfn
+def plessq(x, w):
+    match x, w:
+        case str(), str():
+            return ord(w) <= ord(x)
+        case str(), int() | float():
+            return 1
+        case int() | float(), str():
+            return 0
+        case _:
+            return w <= x
+
+
+@bqnfn
+def preshape(x, w):
+    return Array(x[:], w if w is not None else [len(x)], x.fill)
+
+
 @bqnfn
 def ptable(x, w, f):
     if w is not None:
         return Array(
-            [f([f, xi, wi]) for (xi, wi) in itertools.product(x, w)],
-            x.shape + w.shape,
+            [f([f, xi, wi]) for (wi, xi) in itertools.product(w, x)],
+            w.shape + x.shape,
         )
     else:
         return Array([f([f, value, None]) for value in x], x.shape)
+
 
 @bqnfn
 def pscan(x, w, f):
@@ -193,9 +218,17 @@ def pscan(x, w, f):
             result[i] = f([f, x[i], result[i - stride]])
         return Array(result, x.shape, x.fill)
 
+
 @bqnfn
 def pfill_by(x, w, f, g):
-    return f([g, x, w])  # https://mlochbaum.github.io/BQN/implementation/vm.html#testing
+    r = f([f, x, w])  # https://mlochbaum.github.io/BQN/implementation/vm.html#testing
+    # xf = x.fill if type(x) is Array else x if callable(x) else 0 if type(x) is int or type(x) is float else " "
+    # if type(r) == Array and xf:
+    #     wf = 0  # TODO
+    #     fill = g([g, xf, wf])
+    #     r = Array(r[:], r.shape, fill)
+    return r
+
 
 @bqnfn
 def pvalences(x, w, f, g):
@@ -223,9 +256,9 @@ provides = [
     ppower,
     pfloor,
     pequals,
-    bqnfn(lambda x, w: w <= x),
+    plessq,
     bqnfn(lambda x: Array(x.shape, fill=0)),
-    bqnfn(lambda x, w: Array(x[:], w if w is not None else [len(x)], x.fill)),
+    preshape,
     bqnfn(lambda x, w: x[w]),
     bqnfn(lambda x: Array(range(x), fill=0)),
     lambda args: Modifier(Block.Type.N1MOD, ptable, *args),

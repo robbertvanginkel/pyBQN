@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 from collections.abc import Callable
-from dataclasses import dataclass, field, make_dataclass
+from dataclasses import dataclass, field
 from enum import IntEnum
-from multiprocessing import Value
 from typing import Any, Iterable, List, Optional
 import functools
 
@@ -17,8 +16,14 @@ class Array(list):
         self, list: Iterable, shape: Optional[list[int]] = None, fill: Any = None
     ):
         super().__init__(list)
-        self.shape = shape or [len(self)]
-        self.fill = fill
+        self.shape = shape if shape is not None else [len(self)]
+        self.fill = (
+            fill
+            if fill is not None
+            else 0
+            if all(type(x) in [int, float] for x in self)
+            else None
+        )
 
 
 class Stack(list):
@@ -30,6 +35,18 @@ class Stack(list):
         as_list = self[-n:]
         del self[-n:]
         return as_list
+
+
+class partial(functools.partial):
+    """https://github.com/python/cpython/issues/65329"""
+
+    def __eq__(self, other):
+        return (
+            type(self) == type(other)
+            and self.func == other.func
+            and self.args == other.args
+            and self.keywords == other.keywords
+        )
 
 
 @dataclass
@@ -151,7 +168,7 @@ class Block:
             case Block.Type.N1MOD | Block.Type.N2MOD:
                 runner = lambda parent, modifier_args: Modifier(
                     self.block_type,
-                    functools.partial(self.run_bc, parent),
+                    partial(self.run_bc, parent),
                     *modifier_args,
                 )
             case _:
@@ -161,7 +178,7 @@ class Block:
             case Block.Immediateness.IMMEDIATE:
                 return runner(parent, [])
             case Block.Immediateness.DEFERRED:
-                return functools.partial(runner, parent)
+                return partial(runner, parent)
             case _:
                 raise Exception(f"unknonwn block_immediate {self}")
 
@@ -192,7 +209,7 @@ class Body:
         stack = Stack()
         while True:
             opcode = self.vm.bc[pc]
-            # print(f"pc: {pc:02d}, op: 0x{opcode:02x}/{opcode}, stack: {stack}")
+            # logging.debug(f"pc: {pc:02d}, op: 0x{opcode:02x}/{opcode}, stack: {stack}")
             match opcode:
                 case 0x00:  # PUSH
                     arg = self.vm.bc[pc + 1]
@@ -301,7 +318,7 @@ def call(F, x=None, w=None):
     if callable(F):
         return F([F, x, w])
     match F:
-        case int() | list() | str():
+        case int() | list() | str() | float():
             return F
         case _:
             raise Exception(f"Unimplemented call type {type(F)} (x={x}, w={w})")
