@@ -5,7 +5,7 @@ import itertools
 import math
 import operator
 
-from .vm import Array, Block, Modifier
+from .vm import Array, Block, Modifier, call
 
 
 def bqnfn(fn):
@@ -82,7 +82,7 @@ def pgroup_ord(x, w):
 @bqnfn
 def passert_fn(x, w):
     if x != 1:
-        raise AssertionError("".join(w) if w is not None else x)  # TODO: VMError?
+        raise AssertionError("".join(w) if w is not None else x)  # TODO: VMError, displaying bqnstr as string
     else:
         return x
 
@@ -196,11 +196,11 @@ def preshape(x, w):
 def ptable(x, w, f):
     if w is not None:
         return Array(
-            [f([f, xi, wi]) for (wi, xi) in itertools.product(w, x)],
+            [call(f, xi, wi) for (wi, xi) in itertools.product(w, x)],
             w.shape + x.shape,
         )
     else:
-        return Array([f([f, value, None]) for value in x], x.shape)
+        return Array([call(f, value, None) for value in x], x.shape)
 
 
 @bqnfn
@@ -221,7 +221,7 @@ def pscan(x, w, f):
 
 @bqnfn
 def pfill_by(x, w, f, g):
-    r = f([f, x, w])  # https://mlochbaum.github.io/BQN/implementation/vm.html#testing
+    r = call(f, x, w)  # https://mlochbaum.github.io/BQN/implementation/vm.html#testing
     # xf = x.fill if type(x) is Array else x if callable(x) else 0 if type(x) is int or type(x) is float else " "
     # if type(r) == Array and xf:
     #     wf = 0  # TODO
@@ -233,9 +233,9 @@ def pfill_by(x, w, f, g):
 @bqnfn
 def pvalences(x, w, f, g):
     if w is not None:
-        return g([g, x, w])
+        return call(g, x, w)
     else:
-        return f([f, x, w])
+        return call(f, x, w)
 
 
 def pcatches(args):
