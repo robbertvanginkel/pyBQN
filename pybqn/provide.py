@@ -5,7 +5,7 @@ import itertools
 import math
 import operator
 
-from .vm import Array, Block, Modifier, call
+from .vm import Array, Block, Modifier, Train2D, Train3D, call
 
 
 def bqnfn(fn):
@@ -30,8 +30,10 @@ def ptype(x):
         case str():
             assert len(x) == 1  # chars only?
             return 2
-        case Modifier():
-            return {Block.Type.N1MOD: 4, Block.Type.N2MOD: 5}[x.type]
+        case Modifier(type=Block.Type.N1MOD):
+            return 4
+        case Modifier(type=Block.Type.N2MOD):
+            return 5
         case _:
             if callable(x):
                 return 3
@@ -205,19 +207,26 @@ def ptable(x, w, f):
 
 @bqnfn
 def pscan(x, w, f):
-    if not x or x.shape == [0]:
+    if x is None or len(x.shape) == 0:
         raise ValueError("`: 𝕩 must have rank at least 1")
     if w is not None:
-        raise NotImplementedError("scan with 𝕨")
-    else:
+        rank  = len(w.shape) if type(w) is Array else 0
+        if rank+1 != len(x.shape):
+            raise ValueError("`: rank of 𝕨 must be cell rank of 𝕩")
+        if type(w) is not Array:
+            w = [w]  # No need to be Array, only used below
+        elif not all(d==x.shape[1+i] for (i, d) in enumerate(w.shape)):
+            raise ValueError("`: shape of 𝕨 must be cell shape of 𝕩")
+    if len(x) > 0:
         stride = functools.reduce(operator.mul, x.shape[1:], 1)
         result = [None] * len(x)
         for i in range(stride):
-            result[i] = x[i]
+            result[i] = x[i] if w is None else call(f, x[i], w[i])
         for i in range(stride, len(x)):
-            result[i] = f([f, x[i], result[i - stride]])
+            result[i] = call(f, x[i], result[i - stride])
         return Array(result, x.shape, x.fill)
-
+    else:
+        return Array(x[:], x.shape, x.fill)
 
 @bqnfn
 def pfill_by(x, w, f, g):
@@ -240,6 +249,34 @@ def pvalences(x, w, f, g):
 
 def pcatches(args):
     raise NotImplementedError("catches")
+
+
+def make_prims(runtime):
+    @bqnfn
+    def decompose(x):
+        if x in runtime:
+            return Array([0, x])
+        match x:
+            case Array() | int() | float() | str():
+                return Array([-1, x])
+            case Train2D():
+                return Array([2, x.G, x.H])
+            case Train3D():
+                return Array([3, x.F, x.G, x.H])
+            # case Modifier(type=Block.Type.N1MOD):
+            #     return Array([4, x.f, x.r])
+            # case Modifier(type=Block.Type.N2MOD):
+            #     return Array([5, x.f, x.r, x.g])
+            case _:
+                return Array([1, x])
+
+    index = {id(x): i for i, x in enumerate(runtime)}
+
+    @bqnfn
+    def prim_ind(x):
+        return index.get(id(x), len(runtime))
+
+    return decompose, prim_ind
 
 
 provides = [
