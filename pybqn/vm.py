@@ -161,24 +161,23 @@ class Block:
     index: int | list[list[int]]
 
     def __call__(self, parent: Optional[Frame] = None):
-        runner: Callable[[Optional[Frame], list], Any]
+        runner: Callable[[list], Any]
         match self.block_type:
             case Block.Type.FUNIMM:
-                runner = self.run_bc
+                runner = partial(self.run_bc, parent)
             case Block.Type.N1MOD | Block.Type.N2MOD:
-                runner = lambda parent, modifier_args: Modifier(
+                runner = Modifier(
                     self.block_type,
                     partial(self.run_bc, parent),
-                    *modifier_args,
                 )
             case _:
                 raise Exception(f"unknonwn block_type {self}")
 
         match self.block_immediate:
             case Block.Immediateness.IMMEDIATE:
-                return runner(parent, [])
+                return runner([])
             case Block.Immediateness.DEFERRED:
-                return partial(runner, parent)
+                return runner
             case _:
                 raise Exception(f"unknonwn block_immediate {self}")
 
@@ -328,12 +327,16 @@ def call(F, x=None, w=None):
 class Modifier:
     type: Block.Type
     callable: Callable
+    bound: bool = False
     r: Any = None
     f: Any = None
     g: Any = None
 
     def __call__(self, args: list):
-        return self.callable(args + [self.r, self.f, self.g])
+        if not self.bound:
+            return Modifier(self.type, self.callable, True, *args)
+        else:
+            return self.callable(args + [self.r, self.f, self.g])
 
 
 class VM:

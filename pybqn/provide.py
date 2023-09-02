@@ -31,9 +31,9 @@ def ptype(x):
         case str():
             assert len(x) == 1  # chars only?
             return 2
-        case Modifier(type=Block.Type.N1MOD):
+        case Modifier(type=Block.Type.N1MOD, bound=False):
             return 4
-        case Modifier(type=Block.Type.N2MOD):
+        case Modifier(type=Block.Type.N2MOD, bound=False):
             return 5
         case _:
             if callable(x):
@@ -267,10 +267,10 @@ def make_prims(runtime):
                 return Array([2, x.G, x.H])
             case Train3D():
                 return Array([3, x.F, x.G, x.H])
-            # case Modifier(type=Block.Type.N1MOD):
-            #     return Array([4, x.f, x.r])
-            # case Modifier(type=Block.Type.N2MOD):
-            #     return Array([5, x.f, x.r, x.g])
+            case Modifier(type=Block.Type.N1MOD, bound=True):
+                return Array([4, x.f, x.r])
+            case Modifier(type=Block.Type.N2MOD, bound=True):
+                return Array([5, x.f, x.r, x.g])
             case _:
                 return Array([1, x])
 
@@ -302,9 +302,9 @@ provides = [
     preshape,
     bqnfn(lambda x, w: x[w]),
     bqnfn(lambda x: Array(range(x), fill=0)),
-    lambda args: Modifier(Block.Type.N1MOD, ptable, *args),
-    lambda args: Modifier(Block.Type.N1MOD, pscan, *args),
-    lambda args: Modifier(Block.Type.N2MOD, pfill_by, *args),
-    lambda args: Modifier(Block.Type.N2MOD, pvalences, *args),
+    Modifier(Block.Type.N1MOD, ptable),
+    Modifier(Block.Type.N1MOD, pscan),
+    Modifier(Block.Type.N2MOD, pfill_by),
+    Modifier(Block.Type.N2MOD, pvalences),
     pcatches,
 ]
