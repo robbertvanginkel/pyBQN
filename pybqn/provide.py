@@ -4,6 +4,7 @@ import inspect
 import itertools
 import math
 import operator
+from typing import Any
 
 from .vm import Array, Block, Modifier, Train2D, Train3D, call
 
@@ -84,7 +85,9 @@ def pgroup_ord(x, w):
 @bqnfn
 def passert_fn(x, w):
     if x != 1:
-        raise AssertionError("".join(w) if w is not None else x)  # TODO: VMError, displaying bqnstr as string
+        raise AssertionError(
+            "".join(w) if w is not None else x
+        )  # TODO: VMError, displaying bqnstr as string
     else:
         return x
 
@@ -210,16 +213,16 @@ def pscan(x, w, f):
     if x is None or len(x.shape) == 0:
         raise ValueError("`: 𝕩 must have rank at least 1")
     if w is not None:
-        rank  = len(w.shape) if type(w) is Array else 0
-        if rank+1 != len(x.shape):
+        rank = len(w.shape) if type(w) is Array else 0
+        if rank + 1 != len(x.shape):
             raise ValueError("`: rank of 𝕨 must be cell rank of 𝕩")
         if type(w) is not Array:
             w = [w]  # No need to be Array, only used below
-        elif not all(d==x.shape[1+i] for (i, d) in enumerate(w.shape)):
+        elif not all(d == x.shape[1 + i] for (i, d) in enumerate(w.shape)):
             raise ValueError("`: shape of 𝕨 must be cell shape of 𝕩")
     if len(x) > 0:
         stride = functools.reduce(operator.mul, x.shape[1:], 1)
-        result = [None] * len(x)
+        result: list[Any] = [None] * len(x)
         for i in range(stride):
             result[i] = x[i] if w is None else call(f, x[i], w[i])
         for i in range(stride, len(x)):
@@ -227,6 +230,7 @@ def pscan(x, w, f):
         return Array(result, x.shape, x.fill)
     else:
         return Array(x[:], x.shape, x.fill)
+
 
 @bqnfn
 def pfill_by(x, w, f, g):
