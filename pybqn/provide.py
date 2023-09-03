@@ -64,7 +64,7 @@ def pfill(x, w):
 
 @bqnfn
 def plog(x, w):
-    raise NotImplementedError("log")
+    return math.log(x, math.e if w is None else w)
 
 
 @bqnfn
@@ -79,7 +79,13 @@ def pgroup_len(x, w):
 
 @bqnfn
 def pgroup_ord(x, w):
-    raise NotImplementedError("log")
+    *s, l = itertools.accumulate(w, initial=0)
+    r: list[Any] = [None] * l
+    for i, e in enumerate(x):
+        if e >= 0:
+            r[s[e]] = i
+            s[e] += 1
+    return Array(r, fill=x.fill)
 
 
 @bqnfn
