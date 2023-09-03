@@ -64,7 +64,14 @@ def pfill(x, w):
 
 @bqnfn
 def plog(x, w):
-    return math.log(x, math.e if w is None else w)
+        match x, w:
+            case 0, 0:
+                return math.nan
+            case 0, _:
+                return math.inf if w is not None and w < 1 else -math.inf
+            case _:
+                return math.log(x, math.e if w is None else w)
+
 
 
 @bqnfn

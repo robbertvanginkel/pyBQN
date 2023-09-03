@@ -10,8 +10,11 @@ if __name__ == "__main__":
     for x in sys.stdin.readlines():
         line = x.strip()
         expect = 1
-        if line.startswith("! % "):
-            line = line.removeprefix("! % ")
-            expect = "AssertionError"
+        if " % " in line:
+            expect, line = line.split(" % ")
+            expect = "AssertionError" if expect == "!" else expect
+        elif line.startswith("#") or len(line) == 0:
+            print(line)
+            continue
         compiled = subprocess.run(["bqn", "utils/cpy.bqn", "../../BQN", line], capture_output=True, text=True).stdout.strip()
         print(f"{ast.unparse(ast.Constant(line))} % :({expect}, {compiled}),")
