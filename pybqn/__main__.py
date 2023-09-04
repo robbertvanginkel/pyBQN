@@ -1,9 +1,22 @@
+import argparse
+import select
 import sys
-from pybqn import VM
+import pybqn
 
 if __name__ == "__main__":
-    # input = sys.stdin.read()
-    input = "•listSys"
-    vm = VM()
+    parser = argparse.ArgumentParser(prog="pybqn")
+    parser.add_argument('file', nargs='*', help='bqn file to execute', metavar='file.bqn args', default=[None])
+    parser.add_argument('--version', action='version', version=pybqn.__version__)
+    args = parser.parse_args()
+    file, *args = args.file
+    vm = pybqn.VM(args=args, stdout=sys.stdout)
+
+    if file is not None:
+        with open(file) as f:
+            input = f.read()
+    elif select.select([sys.stdin, ], [], [], 0.0)[0]:
+        input = sys.stdin.read()
+    else:
+        input = input("bqn> ")
     result = vm.run(input)
     print(vm.format(result))
