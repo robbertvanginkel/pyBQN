@@ -41,10 +41,7 @@ def ptype(x):
             else:
                 raise TypeError(f"unknown type {type(x)}")
 
-
-@bqnfn
-def pfill(x, w):
-    def to_fill(value):
+def to_fill(value):
         if callable(value):
             return None
         elif type(value) is Array:
@@ -54,6 +51,8 @@ def pfill(x, w):
         else:
             return " "
 
+@bqnfn
+def pfill(x, w):
     if w is not None:
         return Array(x[:], x.shape, to_fill(w))
     elif x.fill is None:
@@ -189,7 +188,7 @@ def pequals(x, w):
     if w is None:
         return len(x.shape) if type(x) is Array else 0
     else:
-        return 1 if x == w else 0
+        return int(x == w)
 
 
 @bqnfn
@@ -202,7 +201,7 @@ def plessq(x, w):
         case int() | float(), str():
             return 0
         case _:
-            return w <= x
+            return int(w <= x)
 
 
 @bqnfn
@@ -248,11 +247,23 @@ def pscan(x, w, f):
 @bqnfn
 def pfill_by(x, w, f, g):
     r = call(f, x, w)  # https://mlochbaum.github.io/BQN/implementation/vm.html#testing
-    # xf = x.fill if type(x) is Array else x if callable(x) else 0 if type(x) is int or type(x) is float else " "
+    # atomfill = lambda x: x if callable(x) else 0 if type(x) in [int, float] else " "
+    # xf = x.fill if type(x) is Array else atomfill(x)
     # if type(r) == Array and xf:
-    #     wf = 0  # TODO
-    #     fill = g([g, xf, wf])
-    #     r = Array(r[:], r.shape, fill)
+    #     r = Array(r[:], r.shape)
+    #     try:
+    #         wf = None
+    #         if w is None:
+    #             wf = wf
+    #         elif type(w) is not Array:
+    #             wf = atomfill(w)
+    #         elif type(w) is Array and w.fill is not None:
+    #             wf = w.fill
+    #         else:
+    #             wf = passert_fn
+    #         r.fill = to_fill(g([g, xf, wf]))
+    #     except AssertionError:
+    #         r.fill = None
     return r
 
 
@@ -293,7 +304,12 @@ def make_prims(runtime):
     def prim_ind(x):
         return index.get(id(x), len(runtime))
 
-    return decompose, prim_ind
+    @bqnfn
+    def glyph(x):
+        idx = index[id(x)]
+        return "+-×÷⋆√⌊⌈|¬∧∨<>≠=≤≥≡≢⊣⊢⥊∾≍⋈↑↓↕«»⌽⍉/⍋⍒⊏⊑⊐⊒∊⍷⊔!˙˜˘¨⌜⁼´˝`∘○⊸⟜⌾⊘◶⎉⚇⍟⎊"[idx]
+
+    return decompose, prim_ind, glyph
 
 
 provides = [
@@ -321,3 +337,7 @@ provides = [
     Modifier(Block.Type.N2MOD, pvalences),
     pcatches,
 ]
+
+@bqnfn
+def fmt_num(x):
+    return str(x)

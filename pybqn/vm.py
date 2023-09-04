@@ -311,7 +311,7 @@ class Body:
                     )
 
 
-def call(F, x=None, w=None):
+def call(F, x=None, w=None) -> Any:
     if x is None:
         return None
     if callable(F):

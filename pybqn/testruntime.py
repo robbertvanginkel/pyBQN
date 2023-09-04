@@ -24,7 +24,8 @@ class RuntimeTest(unittest.TestCase):
 class RuntimeBasedTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self.runtime, set_prims, _ = VM(*r(provides))()
-        call(set_prims, Array([*make_prims(self.runtime)]))
+        decompose, prim_ind, glyph = make_prims(self.runtime)
+        call(set_prims, Array([decompose, prim_ind]))
 
     def runcases(self, cases: dict[str, tuple[int | float | type[Exception], list]]):
         for case, (expected, input) in cases.items():
@@ -676,7 +677,7 @@ class InfefredTests(RuntimeBasedTestCase):
             '⌽˝0‿3⥊⟨⟩'                                                                                :(AssertionError, [[11,0,0,0,0,3,0,4,11,2,17,0,2,0,1,26,16,7],[runtime[22],runtime[31],runtime[51],0,3],[[0,1,0]],[[0,0]]]),
         })
         # fmt: on
-    
+
     def test_under(self):
         """https://github.com/mlochbaum/BQN/blob/ea6597c92f75320319cd7366423c2c97b7e2d3e4/test/cases/under.bqn"""
         runtime = self.runtime
