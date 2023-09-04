@@ -6,7 +6,11 @@ import math
 import operator
 from typing import Any
 
-from .vm import Array, Block, Modifier, Train2D, Train3D, call
+from .program import Array, Block, Modifier, Train2D, Train3D, call
+
+
+def bqnstr(s: str):
+    return Array(s, fill=" ")
 
 
 def bqnfn(fn):
@@ -15,10 +19,10 @@ def bqnfn(fn):
     kwargs = [(i, s) for i, s in enumerate("sxwrfg") if s in params]
 
     @functools.wraps(fn)
-    def call(args):
+    def do(args):
         return fn(**{s: args[i] for i, s in kwargs})
 
-    return call
+    return do
 
 
 @bqnfn
@@ -41,15 +45,17 @@ def ptype(x):
             else:
                 raise TypeError(f"unknown type {type(x)}")
 
+
 def to_fill(value):
-        if callable(value):
-            return None
-        elif type(value) is Array:
-            return Array([to_fill(x) for x in value], value.shape, value.fill)
-        elif type(value) is int or type(value) is float:
-            return 0
-        else:
-            return " "
+    if callable(value):
+        return None
+    elif type(value) is Array:
+        return Array([to_fill(x) for x in value], value.shape, value.fill)
+    elif type(value) is int or type(value) is float:
+        return 0
+    else:
+        return " "
+
 
 @bqnfn
 def pfill(x, w):
@@ -63,14 +69,13 @@ def pfill(x, w):
 
 @bqnfn
 def plog(x, w):
-        match x, w:
-            case 0, 0:
-                return math.nan
-            case 0, _:
-                return math.inf if w is not None and w < 1 else -math.inf
-            case _:
-                return math.log(x, math.e if w is None else w)
-
+    match x, w:
+        case 0, 0:
+            return math.nan
+        case 0, _:
+            return math.inf if w is not None and w < 1 else -math.inf
+        case _:
+            return math.log(x, math.e if w is None else w)
 
 
 @bqnfn
@@ -279,6 +284,33 @@ def pcatches(args):
     raise NotImplementedError("catches")
 
 
+provides = [
+    ptype,
+    pfill,
+    plog,
+    pgroup_len,
+    pgroup_ord,
+    passert_fn,
+    pplus,
+    pminus,
+    ptimes,
+    pdivide,
+    ppower,
+    pfloor,
+    pequals,
+    plessq,
+    bqnfn(lambda x: Array(x.shape, fill=0)),
+    preshape,
+    bqnfn(lambda x, w: x[w]),
+    bqnfn(lambda x: Array(range(x), fill=0)),
+    Modifier(Block.Type.N1MOD, ptable),
+    Modifier(Block.Type.N1MOD, pscan),
+    Modifier(Block.Type.N2MOD, pfill_by),
+    Modifier(Block.Type.N2MOD, pvalences),
+    pcatches,
+]
+
+
 def make_prims(runtime):
     @bqnfn
     def decompose(x):
@@ -311,32 +343,6 @@ def make_prims(runtime):
 
     return decompose, prim_ind, glyph
 
-
-provides = [
-    ptype,
-    pfill,
-    plog,
-    pgroup_len,
-    pgroup_ord,
-    passert_fn,
-    pplus,
-    pminus,
-    ptimes,
-    pdivide,
-    ppower,
-    pfloor,
-    pequals,
-    plessq,
-    bqnfn(lambda x: Array(x.shape, fill=0)),
-    preshape,
-    bqnfn(lambda x, w: x[w]),
-    bqnfn(lambda x: Array(range(x), fill=0)),
-    Modifier(Block.Type.N1MOD, ptable),
-    Modifier(Block.Type.N1MOD, pscan),
-    Modifier(Block.Type.N2MOD, pfill_by),
-    Modifier(Block.Type.N2MOD, pvalences),
-    pcatches,
-]
 
 @bqnfn
 def fmt_num(x):

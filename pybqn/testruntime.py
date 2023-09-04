@@ -2,28 +2,28 @@ import inspect
 import unittest
 import math
 
-from pybqn.provide import provides, make_prims
-from pybqn.vm import VM, Array, call
-from pybqn.runtime import r0, r1, r, bqnstr
+from pybqn.provide import provides, make_prims, bqnstr
+from pybqn.program import Program, Array, call
+from pybqn.precompiled import r0, r1, r
 
 
 class RuntimeTest(unittest.TestCase):
     def test_r0(self):
-        vm = VM(*r0(provides))
+        vm = Program(*r0(provides))
         self.assertIsNotNone(vm())
 
     def test_r1(self):
-        runtime_0 = VM(*r0(provides))()
-        runtime_1 = VM(*r1(provides, runtime_0))()
+        runtime_0 = Program(*r0(provides))()
+        runtime_1 = Program(*r1(provides, runtime_0))()
         self.assertIsNotNone(runtime_1)
 
     def test_runtime(self):
-        self.assertIsNotNone(VM(*r(provides))())
+        self.assertIsNotNone(Program(*r(provides))())
 
 
 class RuntimeBasedTestCase(unittest.TestCase):
     def setUp(self) -> None:
-        self.runtime, set_prims, _ = VM(*r(provides))()
+        self.runtime, set_prims, _ = Program(*r(provides))()
         decompose, prim_ind, glyph = make_prims(self.runtime)
         call(set_prims, Array([decompose, prim_ind]))
 
@@ -32,9 +32,9 @@ class RuntimeBasedTestCase(unittest.TestCase):
             with self.subTest(case=case):
                 if inspect.isclass(expected) and issubclass(expected, Exception):
                     with self.assertRaises(expected):
-                        self.assertEqual(VM(*input)(), expected)
+                        self.assertEqual(Program(*input)(), expected)
                 else:
-                    out = VM(*input)()
+                    out = Program(*input)()
                     self.assertEqual(out, expected)
 
 

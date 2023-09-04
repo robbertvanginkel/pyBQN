@@ -1,10 +1,6 @@
 import math
 
-from .vm import Array
-
-
-def bqnstr(s: str):
-    return Array(s, fill=" ")
+from .provide import bqnstr
 
 
 # fmt: off

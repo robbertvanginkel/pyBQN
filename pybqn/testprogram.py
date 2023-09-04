@@ -1,6 +1,6 @@
 import unittest
 
-from . import VM
+from .program import Program
 
 
 class ByteCodeTest(unittest.TestCase):
@@ -50,10 +50,10 @@ class ByteCodeTest(unittest.TestCase):
     }
     # fmt: on
 
-    def test_vm(self):
+    def test_program(self):
         for case, (expected, input) in self.cases.items():
             with self.subTest(case=case):
-                self.assertEqual(VM(*input)(), expected)
+                self.assertEqual(Program(*input)(), expected)
 
 
 if __name__ == "__main__":
