@@ -54,7 +54,7 @@ class Train2D:
     G: Any
     H: Any
 
-    def __call__(self, args: list):
+    def __call__(self, *args):
         return call(self.G, call(self.H, args[1], args[2]))
 
 
@@ -64,7 +64,7 @@ class Train3D:
     H: Any
     F: Any
 
-    def __call__(self, args: list):
+    def __call__(self, *args):
         return call(
             self.G,
             call(self.H, args[1], args[2]),
@@ -128,7 +128,7 @@ class Slot:
 class Frame:
     depth: int = 0
 
-    def __init__(self, parent: Optional["Frame"], nvars: int, args: list) -> None:
+    def __init__(self, parent: Optional["Frame"], nvars: int, *args) -> None:
         self.depth = parent.depth + 1 if parent else 0
         self.parent = parent
         self.slots = [Slot() for _ in range(nvars)]
@@ -161,7 +161,7 @@ class Block:
     index: int | list[list[int]]
 
     def __call__(self, parent: Optional[Frame] = None):
-        runner: Callable[[list], Any]
+        runner: Callable[..., Any]
         match self.block_type:
             case Block.Type.FUNIMM:
                 runner = partial(self.run_bc, parent)
@@ -175,21 +175,21 @@ class Block:
 
         match self.block_immediate:
             case Block.Immediateness.IMMEDIATE:
-                return runner([])
+                return runner()
             case Block.Immediateness.DEFERRED:
                 return runner
             case _:
                 raise Exception(f"unknonwn block_immediate {self}")
 
-    def run_bc(self, parent: Optional[Frame], args: list):
+    def run_bc(self, parent: Optional[Frame], *args):
         if type(self.index) is int:
-            return self.prog.bodies[self.index](parent, args)
+            return self.prog.bodies[self.index](parent, *args)
         elif type(self.index) is list:
             _, _, w, *_ = args
             i = 0 if w is None else 1
             if len(self.index[i]) > 1:
                 raise NotImplementedError("multiple body blocks")  # TODO: all blocks
-            return self.prog.bodies[self.index[i][0]](parent, args)
+            return self.prog.bodies[self.index[i][0]](parent, *args)
         else:
             raise Exception("unreachable")
 
@@ -202,8 +202,8 @@ class Body:
     names: list[int] = field(default_factory=list)
     exported: list[bool] = field(default_factory=list)
 
-    def __call__(self, parent: Optional[Frame], args: list):
-        frame = Frame(parent, self.nvars, args)
+    def __call__(self, parent: Optional[Frame], *args):
+        frame = Frame(parent, self.nvars, *args)
         pc = self.start
         stack = Stack()
         while True:
@@ -315,12 +315,9 @@ def call(F, x=None, w=None) -> Any:
     if x is None:
         return None
     if callable(F):
-        return F([F, x, w])
-    match F:
-        case int() | list() | str() | float():
-            return F
-        case _:
-            raise Exception(f"Unimplemented call type {type(F)} (x={x}, w={w})")
+        return F(F, x, w)
+    else:
+        return F
 
 
 @dataclass
@@ -332,11 +329,11 @@ class Modifier:
     f: Any = None
     g: Any = None
 
-    def __call__(self, args: list):
+    def __call__(self, *args):
         if not self.bound:
             return Modifier(self.type, self.callable, True, *args)
         else:
-            return self.callable(args + [self.r, self.f, self.g])
+            return self.callable(*args, self.r, self.f, self.g)
 
 class BQNError(Exception):
     """raised when execution of a BQN program throws an error"""
@@ -353,4 +350,4 @@ class Program:
         self.tok = tok
 
     def __call__(self) -> Any:
-        return self.blocks[0](None)
+        return self.blocks[0]()

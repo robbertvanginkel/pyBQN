@@ -13,20 +13,7 @@ def bqnstr(s: str):
     return Array(s, fill=" ")
 
 
-def bqnfn(fn):
-    """wraps a function that takes a named special argument (sxwrfg) and returns a function that takes a list of argumnts in vm order"""
-    params = inspect.signature(fn).parameters.keys()
-    kwargs = [(i, s) for i, s in enumerate("sxwrfg") if s in params]
-
-    @functools.wraps(fn)
-    def do(args):
-        return fn(**{s: args[i] for i, s in kwargs})
-
-    return do
-
-
-@bqnfn
-def ptype(x):
+def ptype(_s, x, _w):
     match x:
         case Array():
             return 0
@@ -57,8 +44,7 @@ def to_fill(value):
         return " "
 
 
-@bqnfn
-def pfill(x, w):
+def pfill(_s, x, w):
     if w is not None:
         return Array(x[:], x.shape, to_fill(w))
     elif x.fill is None:
@@ -67,8 +53,7 @@ def pfill(x, w):
         return x.fill
 
 
-@bqnfn
-def plog(x, w):
+def plog(_s, x, w):
     match x, w:
         case 0, 0:
             return math.nan
@@ -78,8 +63,7 @@ def plog(x, w):
             return math.log(x, math.e if w is None else w)
 
 
-@bqnfn
-def pgroup_len(x, w):
+def pgroup_len(_s, x, w):
     l = functools.reduce(max, x, (w if w is not None else 0) - 1)
     r = [0] * (l + 1)
     for e in x:
@@ -88,8 +72,7 @@ def pgroup_len(x, w):
     return Array(r, fill=0)
 
 
-@bqnfn
-def pgroup_ord(x, w):
+def pgroup_ord(_s, x, w):
     *s, l = itertools.accumulate(w, initial=0)
     r: list[Any] = [None] * l
     for i, e in enumerate(x):
@@ -99,16 +82,14 @@ def pgroup_ord(x, w):
     return Array(r, fill=x.fill)
 
 
-@bqnfn
-def passert_fn(x, w):
+def passert_fn(_s, x, w):
     if x != 1:
         raise BQNError(w if w is not None else x)
     else:
         return x
 
 
-@bqnfn
-def pplus(x, w):
+def pplus(_s, x, w):
     if w is None:
         if type(x) is not float and type(x) is not int:
             raise BQNError("+: 𝕩 must be a number")
@@ -127,8 +108,7 @@ def pplus(x, w):
                 raise BQNError("+: Cannot add non-data values")
 
 
-@bqnfn
-def pminus(x, w):
+def pminus(s_, x, w):
     match w, x:
         case None, int() | float():
             return -x
@@ -147,8 +127,7 @@ def pminus(x, w):
             raise BQNError("-: Cannot subtract non-data values")
 
 
-@bqnfn
-def ptimes(x, w):
+def ptimes(s_, x, w):
     match x, w:
         case int() | float(), int() | float():
             return w * x
@@ -156,8 +135,7 @@ def ptimes(x, w):
             raise BQNError("×: Arguments must be numbers")
 
 
-@bqnfn
-def pdivide(x, w):
+def pdivide(_s, x, w):
     w = w if w is not None else 1
     try:
         match x, w:
@@ -173,8 +151,7 @@ def pdivide(x, w):
         return math.inf if w > 0 else -math.inf if w < 0 else math.nan
 
 
-@bqnfn
-def ppower(x, w):
+def ppower(_s, x, w):
     try:
         if w is None:
             return math.exp(x)
@@ -184,8 +161,7 @@ def ppower(x, w):
         raise BQNError(*e.args) from None
 
 
-@bqnfn
-def pfloor(x, w):
+def pfloor(_s, x, w):
     try:
         if w is None:
             return math.floor(x) if math.isfinite(x) else x
@@ -195,16 +171,14 @@ def pfloor(x, w):
         raise BQNError(*e.args) from None
 
 
-@bqnfn
-def pequals(x, w):
+def pequals(_s, x, w):
     if w is None:
         return len(x.shape) if type(x) is Array else 0
     else:
         return int(x == w)
 
 
-@bqnfn
-def plessq(x, w):
+def plessq(_s, x, w):
     match x, w:
         case str(), str():
             return ord(w) <= ord(x)
@@ -219,13 +193,11 @@ def plessq(x, w):
                 raise BQNError(*e.args) from None
 
 
-@bqnfn
-def preshape(x, w):
+def preshape(_s, x, w):
     return Array(x[:], w if w is not None else [len(x)], x.fill)
 
 
-@bqnfn
-def ptable(x, w, f):
+def ptable(_s, x, w, _r, f, _g):
     if w is not None:
         return Array(
             [call(f, xi, wi) for (wi, xi) in itertools.product(w, x)],
@@ -235,8 +207,7 @@ def ptable(x, w, f):
         return Array([call(f, value, None) for value in x], x.shape)
 
 
-@bqnfn
-def pscan(x, w, f):
+def pscan(_s, x, w, _r, f, _g):
     if x is None or type(x) is not Array or len(x.shape) == 0:
         raise BQNError("`: 𝕩 must have rank at least 1")
     if w is not None:
@@ -259,8 +230,7 @@ def pscan(x, w, f):
         return Array(x[:], x.shape, x.fill)
 
 
-@bqnfn
-def pfill_by(x, w, f, g):
+def pfill_by(_s, x, w, _r, f, _g):
     r = call(f, x, w)  # https://mlochbaum.github.io/BQN/implementation/vm.html#testing
     # atomfill = lambda x: x if callable(x) else 0 if type(x) in [int, float] else " "
     # xf = x.fill if type(x) is Array else atomfill(x)
@@ -282,16 +252,14 @@ def pfill_by(x, w, f, g):
     return r
 
 
-@bqnfn
-def pvalences(x, w, f, g):
+def pvalences(_s, x, w, _r, f, g):
     if w is not None:
         return call(g, x, w)
     else:
         return call(f, x, w)
 
 
-@bqnfn
-def pcatches(x, w, f, g):
+def pcatches(_s, x, w, _r, f, g):
     try:
         return call(f, x, w)
     except BQNError:
@@ -313,10 +281,10 @@ provides = [
     pfloor,
     pequals,
     plessq,
-    bqnfn(lambda x: Array(x.shape, fill=0)),
+    lambda _s, x, _w: Array(x.shape, fill=0),
     preshape,
-    bqnfn(lambda x, w: x[w]),
-    bqnfn(lambda x: Array(range(x), fill=0)),
+    lambda _s, x, w: x[w],
+    lambda _s, x, _w: Array(range(x), fill=0),
     Modifier(Block.Type.N1MOD, ptable),
     Modifier(Block.Type.N1MOD, pscan),
     Modifier(Block.Type.N2MOD, pfill_by),
@@ -326,8 +294,7 @@ provides = [
 
 
 def make_prims(runtime):
-    @bqnfn
-    def decompose(x):
+    def decompose(_s, x, _w):
         if x in runtime:
             return Array([0, x])
         match x:
@@ -346,18 +313,15 @@ def make_prims(runtime):
 
     index = {id(x): i for i, x in enumerate(runtime)}
 
-    @bqnfn
-    def prim_ind(x):
+    def prim_ind(_s, x, _w):
         return index.get(id(x), len(runtime))
 
-    @bqnfn
-    def glyph(x):
+    def glyph(_s, x, _w):
         idx = index[id(x)]
         return "+-×÷⋆√⌊⌈|¬∧∨<>≠=≤≥≡≢⊣⊢⥊∾≍⋈↑↓↕«»⌽⍉/⍋⍒⊏⊑⊐⊒∊⍷⊔!˙˜˘¨⌜⁼´˝`∘○⊸⟜⌾⊘◶⎉⚇⍟⎊"[idx]
 
     return decompose, prim_ind, glyph
 
 
-@bqnfn
-def fmt_num(x):
+def fmt_num(_s, x, _w):
     return str(x)
