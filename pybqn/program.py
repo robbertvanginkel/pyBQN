@@ -338,6 +338,8 @@ class Modifier:
         else:
             return self.callable(args + [self.r, self.f, self.g])
 
+class BQNError(Exception):
+    """raised when execution of a BQN program throws an error"""
 
 class Program:
     def __init__(

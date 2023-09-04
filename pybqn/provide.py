@@ -6,7 +6,7 @@ import math
 import operator
 from typing import Any
 
-from .program import Array, Block, Modifier, Train2D, Train3D, call
+from .program import Array, BQNError, Block, Modifier, Train2D, Train3D, call
 
 
 def bqnstr(s: str):
@@ -43,7 +43,7 @@ def ptype(x):
             if callable(x):
                 return 3
             else:
-                raise TypeError(f"unknown type {type(x)}")
+                raise BQNError(f"unknown type {type(x)}")
 
 
 def to_fill(value):
@@ -62,7 +62,7 @@ def pfill(x, w):
     if w is not None:
         return Array(x[:], x.shape, to_fill(w))
     elif x.fill is None:
-        raise ValueError("fill: 𝕩 does not have a fill value")
+        raise BQNError("fill: 𝕩 does not have a fill value")
     else:
         return x.fill
 
@@ -102,9 +102,7 @@ def pgroup_ord(x, w):
 @bqnfn
 def passert_fn(x, w):
     if x != 1:
-        raise AssertionError(
-            "".join(w) if w is not None else x
-        )  # TODO: VMError, displaying bqnstr as string
+        raise BQNError(w if w is not None else x)
     else:
         return x
 
@@ -113,7 +111,7 @@ def passert_fn(x, w):
 def pplus(x, w):
     if w is None:
         if type(x) is not float and type(x) is not int:
-            raise TypeError("+: 𝕩 must be a number")
+            raise BQNError("+: 𝕩 must be a number")
         return x
     else:
         match w, x:
@@ -124,9 +122,9 @@ def pplus(x, w):
             case str(), int():
                 return chr(ord(w) + x)
             case str(), str():
-                raise TypeError("+: Cannot add two characters")
+                raise BQNError("+: Cannot add two characters")
             case _:
-                raise TypeError("+: Cannot add non-data values")
+                raise BQNError("+: Cannot add non-data values")
 
 
 @bqnfn
@@ -137,13 +135,16 @@ def pminus(x, w):
         case int() | float(), int() | float():
             return w - x
         case None | int(), str():
-            raise TypeError("-: Can only negate numbers")
+            raise BQNError("-: Can only negate numbers")
         case str(), int():
-            return chr(ord(w) - x)
+            try:
+                return chr(ord(w) - x)
+            except ValueError as e:
+                raise BQNError(*e.args) from None
         case str(), str():
             return ord(w) - ord(x)
         case _:
-            raise TypeError("-: Cannot subtract non-data values")
+            raise BQNError("-: Cannot subtract non-data values")
 
 
 @bqnfn
@@ -152,7 +153,7 @@ def ptimes(x, w):
         case int() | float(), int() | float():
             return w * x
         case _:
-            raise TypeError("×: Arguments must be numbers")
+            raise BQNError("×: Arguments must be numbers")
 
 
 @bqnfn
@@ -167,25 +168,31 @@ def pdivide(x, w):
             case int() | float(), int() | float():
                 return w / x
             case _:
-                raise TypeError("÷: Arguments must be numbers")
+                raise BQNError("÷: Arguments must be numbers")
     except ZeroDivisionError:
         return math.inf if w > 0 else -math.inf if w < 0 else math.nan
 
 
 @bqnfn
 def ppower(x, w):
-    if w is None:
-        return math.exp(x)
-    else:
-        return w**x
+    try:
+        if w is None:
+            return math.exp(x)
+        else:
+            return w**x
+    except TypeError as e:
+        raise BQNError(*e.args) from None
 
 
 @bqnfn
 def pfloor(x, w):
-    if w is None:
-        return math.floor(x) if math.isfinite(x) else x
-    else:
-        return min(x, w)
+    try:
+        if w is None:
+            return math.floor(x) if math.isfinite(x) else x
+        else:
+            return min(x, w)
+    except TypeError as e:
+        raise BQNError(*e.args) from None
 
 
 @bqnfn
@@ -206,7 +213,10 @@ def plessq(x, w):
         case int() | float(), str():
             return 0
         case _:
-            return int(w <= x)
+            try:
+                return int(w <= x)
+            except (ValueError, TypeError) as e:
+                raise BQNError(*e.args) from None
 
 
 @bqnfn
@@ -227,16 +237,16 @@ def ptable(x, w, f):
 
 @bqnfn
 def pscan(x, w, f):
-    if x is None or len(x.shape) == 0:
-        raise ValueError("`: 𝕩 must have rank at least 1")
+    if x is None or type(x) is not Array or len(x.shape) == 0:
+        raise BQNError("`: 𝕩 must have rank at least 1")
     if w is not None:
         rank = len(w.shape) if type(w) is Array else 0
         if rank + 1 != len(x.shape):
-            raise ValueError("`: rank of 𝕨 must be cell rank of 𝕩")
+            raise BQNError("`: rank of 𝕨 must be cell rank of 𝕩")
         if type(w) is not Array:
             w = [w]  # No need to be Array, only used below
         elif not all(d == x.shape[1 + i] for (i, d) in enumerate(w.shape)):
-            raise ValueError("`: shape of 𝕨 must be cell shape of 𝕩")
+            raise BQNError("`: shape of 𝕨 must be cell shape of 𝕩")
     if len(x) > 0:
         stride = functools.reduce(operator.mul, x.shape[1:], 1)
         result: list[Any] = [None] * len(x)
@@ -280,8 +290,12 @@ def pvalences(x, w, f, g):
         return call(f, x, w)
 
 
-def pcatches(args):
-    raise NotImplementedError("catches")
+@bqnfn
+def pcatches(x, w, f, g):
+    try:
+        return call(f, x, w)
+    except BQNError:
+        return call(g, x, w)
 
 
 provides = [

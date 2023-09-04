@@ -7,15 +7,7 @@
         "-p",
         "test*.py"
     ],
-    "editor.unicodeHighlight.allowedCharacters": {
-        "𝕩": true,
-        "𝕏": true,
-        "𝕨": true,
-        "𝔽": true,
-        "𝔾": true,
-        "𝕤": true,
-        "𝕗": true,
-    },
+    "editor.unicodeHighlight.nonBasicASCII": false,
     "python.testing.pytestEnabled": false,
     "python.testing.unittestEnabled": true,
     "editor.fontFamily": "JetBrains Mono",
