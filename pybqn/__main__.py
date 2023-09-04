@@ -1,5 +1,5 @@
 import sys
-from pybqn.vm import VM
+from pybqn import VM
 
 if __name__ == "__main__":
     # input = sys.stdin.read()

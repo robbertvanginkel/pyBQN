@@ -838,7 +838,3 @@ class InfefredTests(RuntimeBasedTestCase):
             '(/2‿3) ≡ /⍟¯1⁼2‿3‿0'                     :(1, [[0,4,0,5,0,7,11,3,0,2,0,6,0,3,0,1,27,26,16,0,0,0,4,0,5,11,2,0,1,16,17,7],[runtime[18],runtime[33],runtime[49],runtime[62],2,3,-1,0],[[0,1,0]],[[0,0]]]),
         })
         # fmt: on
-
-
-if __name__ == "__main__":
-    unittest.main()

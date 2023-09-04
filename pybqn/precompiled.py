@@ -1,6 +1,6 @@
 import math
 
-from .provide import bqnstr
+from pybqn.provide import bqnstr
 
 
 # fmt: off

@@ -1,6 +1,6 @@
 import unittest
 
-from .program import Program
+from pybqn.program import Program
 
 
 class ByteCodeTest(unittest.TestCase):
@@ -54,7 +54,3 @@ class ByteCodeTest(unittest.TestCase):
         for case, (expected, input) in self.cases.items():
             with self.subTest(case=case):
                 self.assertEqual(Program(*input)(), expected)
-
-
-if __name__ == "__main__":
-    unittest.main()

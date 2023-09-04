@@ -6,7 +6,7 @@ import math
 import operator
 from typing import Any
 
-from .program import Array, BQNError, Block, Modifier, Train2D, Train3D, call
+from pybqn.program import Array, BQNError, Block, Modifier, Train2D, Train3D, call
 
 
 def bqnstr(s: str):

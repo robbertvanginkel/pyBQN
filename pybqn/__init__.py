@@ -1,1 +1,1 @@
-from .vm import VM
+from pybqn.vm import VM, BQNError
