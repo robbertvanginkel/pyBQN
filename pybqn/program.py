@@ -26,6 +26,11 @@ class Array(list):
             else None
         )
 
+
+def unstr(x: Array) -> str:
+    return "".join(x)
+
+
 class Stack(list):
     def popn(self, n: int):
         if n == 0:
@@ -107,7 +112,8 @@ class Slot:
                 raise Exception("uninitialized variable")
             ref.value = value
         elif type(ref) is Array:
-            assert len(ref) == len(value)
+            if type(value) is not Array or len(ref) != len(value):
+                raise BQNError("assignment lenght mismatch")
             for s, v in zip(ref, value):
                 Slot.set(s, v, allow_uninitialized)
         elif ref is None:
@@ -184,14 +190,14 @@ class Block:
     def run_bc(self, parent: Optional[Frame], *args):
         if type(self.index) is int:
             return self.prog.bodies[self.index](parent, *args)
-        elif type(self.index) is list:
+        elif type(self.index) is list or type(self.index) is Array:
             _, _, w, *_ = args
             i = 0 if w is None else 1
             if len(self.index[i]) > 1:
                 raise NotImplementedError("multiple body blocks")  # TODO: all blocks
             return self.prog.bodies[self.index[i][0]](parent, *args)
         else:
-            raise Exception("unreachable")
+            raise Exception(f"unreachable {type(self.index)}")
 
 
 @dataclass
@@ -305,6 +311,15 @@ class Body:
                     Slot.set(r, call(F, Slot.get(r)))
                     stack.append(Slot.get(r))
                     pc += 1
+                case 0x40:  # FLDO
+                    i = self.prog.bc[pc + 1]
+                    ns = stack.pop()
+                    name = unstr(self.prog.names[i])
+                    try:
+                        stack.append(ns[name])
+                    except TypeError:
+                        raise BQNError(f"key lookup is not a namespace '{type(ns)}'") from None
+                    pc += 2
                 case _:
                     raise Exception(
                         f"Unknown opcode at {pc}: 0x{opcode:02x}, top10stack: {stack[-10:]}"
@@ -348,6 +363,8 @@ class Program:
         self.blocks = [Block(self, *x) for x in blocks]
         self.source = source
         self.tok = tok
+        if self.tok is not None:
+            self.names = self.tok[2][0]
 
     def __call__(self) -> Any:
         return self.blocks[0]()

@@ -1,12 +1,9 @@
+import functools
 import sys
 from typing import Any, Optional, TextIO
-from pybqn.program import BQNError, Program, call, Array
+from pybqn.program import BQNError, Program, call, Array, unstr
 from pybqn.provide import make_prims, provides, ptype, fmt_num, bqnstr
 from pybqn.precompiled import r, c, f
-
-
-def unstr(x: Array) -> str:
-    return "".join(x)
 
 
 class System:
@@ -24,9 +21,30 @@ class System:
             ) from None
 
 
+def sys_write(stdout: TextIO, _s, x, _w):
+    if type(x) is not Array:
+        raise BQNError("Trying to output non-character")
+    stdout.write(unstr(x))
+    stdout.write("\n")
+    return x
+
+
+def file_list(_s, x, _w):
+    from os import listdir
+
+    return Array([bqnstr(f) for f in listdir(unstr(x))])
+
+
+def file_lines(_s, x, w):
+    if w is not None:
+        raise NotImplementedError("lines: 𝕨 not implemented")
+    with open(unstr(x)) as f:
+        return Array([bqnstr(line) for line in f.read().splitlines()])
+
+
 class VM:
     def __init__(
-        self, args: Optional[list[str]] = None, stdout: Optional[TextIO] = sys.stdout
+        self, args: Optional[list[str]] = None, stdout: Optional[TextIO] = None
     ):
         self._runtime, set_prims, _ = Program(*r(provides))()
         decompose, prim_ind, glyph = make_prims(self._runtime)
@@ -40,18 +58,13 @@ class VM:
         if args is not None:
             syskwargs["args"] = Array([bqnstr(arg) for arg in args])
         if stdout is not None:
+            syskwargs["out"] = functools.partial(sys_write, stdout)
 
-            def write(_s, x, _w):
-                if type(x) is not Array:
-                    raise BQNError("Trying to output non-character")
-                stdout.write(unstr(x))
-                stdout.write("\n")
-                return x
-
-            syskwargs["out"] = write
         self._system = System(
             fmt=self._fmt,
             repr=self._repr,
+            file={"lines": file_lines, "list": file_list},
+            bqn=lambda _s, x, _w: self.run(unstr(x)),
             **syskwargs,
         )
 

@@ -289,7 +289,7 @@ provides = [
     Modifier(Block.Type.N1MOD, pscan),
     Modifier(Block.Type.N2MOD, pfill_by),
     Modifier(Block.Type.N2MOD, pvalences),
-    pcatches,
+    Modifier(Block.Type.N2MOD, pcatches),
 ]
 
 
@@ -324,4 +324,4 @@ def make_prims(runtime):
 
 
 def fmt_num(_s, x, _w):
-    return str(x)
+    return bqnstr(str(x))
