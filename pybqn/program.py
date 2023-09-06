@@ -318,7 +318,9 @@ class Body:
                     try:
                         stack.append(ns[name])
                     except TypeError:
-                        raise BQNError(f"key lookup is not a namespace '{type(ns)}'") from None
+                        raise BQNError(
+                            f"key lookup is not a namespace '{type(ns)}'"
+                        ) from None
                     pc += 2
                 case _:
                     raise Exception(
@@ -350,8 +352,10 @@ class Modifier:
         else:
             return self.callable(*args, self.r, self.f, self.g)
 
+
 class BQNError(Exception):
     """raised when execution of a BQN program throws an error"""
+
 
 class Program:
     def __init__(

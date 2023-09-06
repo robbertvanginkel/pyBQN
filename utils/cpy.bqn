@@ -1,5 +1,6 @@
 #! /usr/bin/env bqn
 
+# Adapted from https://github.com/mlochbaum/BQN/blob/master/src/cjs.bqn, modified for python literal output.
 args←•args
 return ← 1≡⊑args
 args↓˜↩ return
