@@ -94,12 +94,12 @@ class VM:
             return self.compile(source, state)()
         except BQNError as e:
             if type(e.args[0]) is Array:
-                raise BQNError(self.format(e.args[0])) from None
+                raise BQNError(unstr(call(self._repr, e.args[0]))) from None
             else:
                 raise
 
     def format(self, result: Any) -> str:
-        reprd = call(self._repr, result)
+        reprd = call(self._fmt, result)
         if reprd is not None:
             return unstr(reprd)
         return ""
