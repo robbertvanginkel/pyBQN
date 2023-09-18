@@ -128,7 +128,7 @@ class Slot:
         elif ref is None:
             return None
         elif type(ref) is Array:
-            return [Slot.get(x) for x in ref]
+            return Array([Slot.get(x) for x in ref])
 
 
 class Frame:
