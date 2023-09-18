@@ -1,9 +1,12 @@
 import functools
-import sys
+import os
+from dataclasses import dataclass
+from posixpath import isabs
 from typing import Any, Optional, TextIO
-from pybqn.program import BQNError, Program, call, Array, unstr
-from pybqn.provide import make_prims, provides, ptype, fmt_num, bqnstr
-from pybqn.precompiled import r, c, f
+
+from pybqn.precompiled import c, f, r
+from pybqn.program import Array, BQNError, Program, call, unstr
+from pybqn.provide import bqnstr, fmt_num, make_prims, provides, ptype
 
 
 class System:
@@ -21,6 +24,28 @@ class System:
             ) from None
 
 
+@dataclass
+class File:
+    path: str
+
+    def full_path(self, x: str) -> str:
+        if not isabs(x):
+            return os.path.join(self.path, x)
+        return x
+
+    def file_list(self, _s, x, _w):
+        return Array([bqnstr(f) for f in os.listdir(self.full_path(unstr(x)))])
+
+    def file_lines(self, _s, x, w):
+        if w is not None:
+            raise NotImplementedError("lines: 𝕨 not implemented")
+        with open(self.full_path(unstr(x))) as f:
+            return Array([bqnstr(line) for line in f.read().splitlines()])
+
+    def __getitem__(self, item):
+        return {"lines": self.file_lines, "list": self.file_list}[item]
+
+
 def sys_write(stdout: TextIO, _s, x, _w):
     if type(x) is not Array:
         raise BQNError("Trying to output non-character")
@@ -29,23 +54,8 @@ def sys_write(stdout: TextIO, _s, x, _w):
     return x
 
 
-def file_list(_s, x, _w):
-    from os import listdir
-
-    return Array([bqnstr(f) for f in listdir(unstr(x))])
-
-
-def file_lines(_s, x, w):
-    if w is not None:
-        raise NotImplementedError("lines: 𝕨 not implemented")
-    with open(unstr(x)) as f:
-        return Array([bqnstr(line) for line in f.read().splitlines()])
-
-
 class VM:
-    def __init__(
-        self, args: Optional[list[str]] = None, stdout: Optional[TextIO] = None
-    ):
+    def __init__(self, stdout: Optional[TextIO] = None):
         self._runtime, set_prims, _ = Program(*r(provides))()
         decompose, prim_ind, glyph = make_prims(self._runtime)
         call(set_prims, Array([decompose, prim_ind]))
@@ -54,29 +64,34 @@ class VM:
         self._fmt, self._repr = call(
             formatter, Array([ptype, formatter, glyph, fmt_num])
         )
-        syskwargs = {}
-        if args is not None:
-            syskwargs["args"] = Array([bqnstr(arg) for arg in args])
-        if stdout is not None:
-            syskwargs["out"] = functools.partial(sys_write, stdout)
+        self.stdout = stdout
 
-        self._system = System(
+    def compile(self, source: Array, state: Array) -> Program:
+        path = state[0] if state and len(state) > 0 else Array([])
+        name = state[1] if state and len(state) > 1 else Array([])
+        args = state[2] if state and len(state) > 2 else Array([])
+        syskwargs = {}
+        if self.stdout is not None:
+            syskwargs["out"] = functools.partial(sys_write, self.stdout)
+
+        system = System(
             fmt=self._fmt,
             repr=self._repr,
-            file={"lines": file_lines, "list": file_list},
-            bqn=lambda _s, x, _w: self.run(unstr(x)),
+            file=File(path=unstr(path)),
+            bqn=lambda _s, x, w: self.run(x, w),
+            state=Array([path, name, args]),
+            path=path,
+            name=name,
+            args=args,
+            wdpath=bqnstr(os.path.join(os.getcwd(), "")),
             **syskwargs,
         )
-
-    def compile(self, source: str) -> Program:
-        compiled = call(
-            self._compiler, x=bqnstr(source), w=Array([self._runtime, self._system])
-        )
+        compiled = call(self._compiler, x=source, w=Array([self._runtime, system]))
         return Program(*compiled)
 
-    def run(self, source: str) -> Any:
+    def run(self, source: Array, state: Array) -> Any:
         try:
-            return self.compile(source)()
+            return self.compile(source, state)()
         except BQNError as e:
             if type(e.args[0]) is Array:
                 raise BQNError(self.format(e.args[0])) from None
