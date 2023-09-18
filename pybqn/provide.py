@@ -182,7 +182,7 @@ def pequals(_s, x, w):
 def plessq(_s, x, w):
     match x, w:
         case str(), str():
-            return ord(w) <= ord(x)
+            return int(ord(w) <= ord(x))
         case str(), int() | float():
             return 1
         case int() | float(), str():
@@ -235,7 +235,7 @@ def pfill_by(_s, x, w, _r, f, g):
     r = call(f, x, w)  # https://mlochbaum.github.io/BQN/implementation/vm.html#testing
     atomfill = lambda x: x if callable(x) else 0 if type(x) in [int, float] else " "
     xf = x.fill if type(x) is Array else atomfill(x)
-    if type(r) == Array and xf:
+    if type(r) == Array and xf is not None:
         r = Array(r[:], r.shape)
         try:
             wf = None

@@ -12,11 +12,11 @@ This is a toy interpreter to better understand the language and VM. If you're lo
 
 - Only implements the bare minimum [core runtime](https://github.com/mlochbaum/BQN) and is _slow_.
 - Missing some opcodes/features: namespaces, headers, multi-body blocks.
-- Only system funcs to run [`test/this.bqn`](https://github.com/mlochbaum/BQN/tree/master/test) tests, and path/wdpath handling is not up to spec.
+- Only system funcs to run [`test/this.bqn`](https://github.com/mlochbaum/BQN/tree/master/test) tests.
 - Only REP~~L~~ (without the L), missing redefinable variables and passing them into the compile (https://mlochbaum.github.io/BQN/implementation/vm.html#compiler-arguments).
 - Passing some tests
-  - Pass: bytecode, identity, literal, prim, simple, token, under
-  - Fail: fill, header, namespace, syntax, undo, unhead
+  - Pass: bytecode, fill, identity, literal, prim, simple, token, under, undo
+  - Fail: header, namespace, syntax, unhead
 
 # License
 The python code is licensed as MIT. Some unittests used to validate the VM/runtime before it could host the compiler contain pre-compiled snippets from the https://github.com/mlochbaum/BQN repo, see the respective license there.

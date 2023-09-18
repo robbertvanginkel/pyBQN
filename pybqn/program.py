@@ -331,8 +331,6 @@ class Body:
 def call(F, x=None, w=None) -> Any:
     if x is None:
         return None
-    if x == 99999:
-        pass
     if callable(F):
         return F(F, x, w)
     else:
