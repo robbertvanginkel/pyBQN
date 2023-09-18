@@ -30,7 +30,7 @@ if __name__ == "__main__":
         input = sys.stdin.read()
     else:
         input = input("pybqn> ")
-    _ = vm.run(
+    result = vm.run(
         bqnstr(input),
         Array(
             [
@@ -40,3 +40,4 @@ if __name__ == "__main__":
             ]
         ),
     )
+    print(result)

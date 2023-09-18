@@ -22,7 +22,7 @@ class Array(list):
             fill
             if fill is not None
             else 0
-            if all(type(x) in [int, float] for x in self)
+            if len(list)>0 and all(type(x) in [int, float] for x in self)
             else None
         )
 

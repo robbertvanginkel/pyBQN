@@ -47,4 +47,8 @@ jobs:
       working-directory: main
       run: |
         python3 -m pybqn ../BQN/test/this.bqn ${{ matrix.bqncase }} | tee "$RUNNER_TEMP/test.log"
+        echo "# ${{ matrix.bqncase }}" >> $GITHUB_STEP_SUMMARY
+        echo "```" >> $GITHUB_STEP_SUMMARY
+        cat "$RUNNER_TEMP/test.log"  >> $GITHUB_STEP_SUMMARY
+        echo "```" >> $GITHUB_STEP_SUMMARY
         grep -q "All passed!" "$RUNNER_TEMP/test.log"

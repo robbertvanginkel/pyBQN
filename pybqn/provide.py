@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import functools
-import inspect
 import itertools
 import math
 import operator
@@ -232,25 +231,25 @@ def pscan(_s, x, w, _r, f, _g):
         return Array(x[:], x.shape, x.fill)
 
 
-def pfill_by(_s, x, w, _r, f, _g):
+def pfill_by(_s, x, w, _r, f, g):
     r = call(f, x, w)  # https://mlochbaum.github.io/BQN/implementation/vm.html#testing
-    # atomfill = lambda x: x if callable(x) else 0 if type(x) in [int, float] else " "
-    # xf = x.fill if type(x) is Array else atomfill(x)
-    # if type(r) == Array and xf:
-    #     r = Array(r[:], r.shape)
-    #     try:
-    #         wf = None
-    #         if w is None:
-    #             wf = wf
-    #         elif type(w) is not Array:
-    #             wf = atomfill(w)
-    #         elif type(w) is Array and w.fill is not None:
-    #             wf = w.fill
-    #         else:
-    #             wf = passert_fn
-    #         r.fill = to_fill(g([g, xf, wf]))
-    #     except AssertionError:
-    #         r.fill = None
+    atomfill = lambda x: x if callable(x) else 0 if type(x) in [int, float] else " "
+    xf = x.fill if type(x) is Array else atomfill(x)
+    if type(r) == Array and xf:
+        r = Array(r[:], r.shape)
+        try:
+            wf = None
+            if w is None:
+                wf = wf
+            elif type(w) is not Array:
+                wf = atomfill(w)
+            elif type(w) is Array and w.fill is not None:
+                wf = w.fill
+            else:
+                wf = passert_fn
+            r.fill = to_fill(call(g, xf, wf))
+        except BQNError:
+            r.fill = None
     return r
 
 
