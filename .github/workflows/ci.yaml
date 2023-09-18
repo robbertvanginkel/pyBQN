@@ -1,15 +1,11 @@
 name: ci
 
 on:
+  workflow_dispatch:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-  workflow_dispatch:
-    inputs: 
-      testcase:
-        description: "From bqn/test/cases/*.bqn as json array"
-        default: "['bytecode','fill','header','identity','literal','namespace','prim','simple','syntax','token','under','undo','unhead']"
 
 permissions:
   contents: read
@@ -18,7 +14,7 @@ jobs:
   unittest:
     runs-on: ubuntu-latest
     strategy:
-      matrix: 
+      matrix:
         python-version: [3.11]
     steps:
     - uses: actions/checkout@v4
@@ -26,13 +22,15 @@ jobs:
       uses: actions/setup-python@v3
       with:
         python-version: ${{ matrix.version }}
-    - name: Run unittests 
+    - name: Run unittests
       run: |
         python3 -m unittest
   e2e:
     runs-on: ubuntu-latest
+    continue-on-error: true
     strategy:
-      matrix: ${{ fromJSON(inputs.testcase) }}
+      matrix:
+        bqncase: [bytecode, fill, header, identity, literal, namespace, prim, simple, syntax, token, under, undo, unhead]
     steps:
     - uses: actions/checkout@v4
       with:
@@ -45,8 +43,8 @@ jobs:
       uses: actions/setup-python@v3
       with:
         python-version: 3.11
-    - name: Run tests 
+    - name: Run tests
       working-directory: main
       run: |
-        python3 -m pybqn ../BQN/test/this.bqn | tee "$RUNNER_TEMP/test.log"
+        python3 -m pybqn ../BQN/test/this.bqn ${{ matrix.bqncase }} | tee "$RUNNER_TEMP/test.log"
         grep -q "All passed!" "$RUNNER_TEMP/test.log"

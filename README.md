@@ -7,7 +7,9 @@ A(n incomplete) BQN [VM](https://mlochbaum.github.io/BQN/implementation/vm.html)
 
 This is a toy interpreter to better understand the language and VM. If you're looking for more performant BQN from python consider the [BQN↔NumPy bridge](https://github.com/vmchale/pybqn) or writing your own interface to [CBQN](https://github.com/dzaima/CBQN).
 
-## Status
+## Status 
+[![ci](https://github.com/robbertvanginkel/pyBQN/actions/workflows/ci.yaml/badge.svg)](https://github.com/robbertvanginkel/pyBQN/actions/workflows/ci.yaml)
+
 - Only implements the bare minimum [core runtime](https://github.com/mlochbaum/BQN) and is _slow_.
 - Missing some opcodes/features: namespaces, headers, multi-body blocks.
 - Only system funcs to run [`test/this.bqn`](https://github.com/mlochbaum/BQN/tree/master/test) tests, and path/wdpath handling is not up to spec.
