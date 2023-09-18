@@ -27,8 +27,8 @@ jobs:
         python3 -m unittest
   e2e:
     runs-on: ubuntu-latest
-    continue-on-error: true
     strategy:
+      fail-fast: false
       matrix:
         bqncase: [bytecode, fill, header, identity, literal, namespace, prim, simple, syntax, token, under, undo, unhead]
     steps:

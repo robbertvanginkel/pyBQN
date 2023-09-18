@@ -11,7 +11,7 @@ This is a toy interpreter to better understand the language and VM. If you're lo
 [![ci](https://github.com/robbertvanginkel/pyBQN/actions/workflows/ci.yaml/badge.svg)](https://github.com/robbertvanginkel/pyBQN/actions/workflows/ci.yaml)
 
 - Only implements the bare minimum [core runtime](https://github.com/mlochbaum/BQN) and is _slow_.
-- Missing some opcodes/features: namespaces, headers, multi-body blocks.
+- Missing some opcodes/features: namespaces, headers, multi-body blocks, inverses.
 - Only system funcs to run [`test/this.bqn`](https://github.com/mlochbaum/BQN/tree/master/test) tests.
 - Only REP~~L~~ (without the L), missing redefinable variables and passing them into the compile (https://mlochbaum.github.io/BQN/implementation/vm.html#compiler-arguments).
 - Passing some tests
