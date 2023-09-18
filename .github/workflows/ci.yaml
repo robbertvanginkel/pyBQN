@@ -1,0 +1,52 @@
+name: ci
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+    inputs: 
+      testcase:
+        description: "From bqn/test/cases/*.bqn as json array"
+        default: "['bytecode','fill','header','identity','literal','namespace','prim','simple','syntax','token','under','undo','unhead']"
+
+permissions:
+  contents: read
+
+jobs:
+  unittest:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: 
+        python-version: [3.11]
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: ${{ matrix.version }}
+    - name: Run unittests 
+      run: |
+        python3 -m unittest
+  e2e:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJSON(inputs.testcase) }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        path: main
+    - uses: actions/checkout@v4
+      with:
+        repository: mlochbaum/BQN
+        path: BQN
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: 3.11
+    - name: Run tests 
+      working-directory: main
+      run: |
+        python3 -m pybqn ../BQN/test/this.bqn | tee "$RUNNER_TEMP/test.log"
+        grep -q "All passed!" "$RUNNER_TEMP/test.log"
