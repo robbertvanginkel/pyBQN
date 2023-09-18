@@ -66,7 +66,7 @@ class VM:
         )
         self.stdout = stdout
 
-    def compile(self, source: Array, state: Array) -> Program:
+    def compile(self, source: Array, state: Array = None) -> Program:
         path = state[0] if state and len(state) > 0 else Array([])
         name = state[1] if state and len(state) > 1 else Array([])
         args = state[2] if state and len(state) > 2 else Array([])

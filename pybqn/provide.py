@@ -128,6 +128,8 @@ def pminus(s_, x, w):
 
 
 def ptimes(s_, x, w):
+    if x == 0 or w == 0: 
+        return 0 # see testvm.TestVM.test_pi
     match x, w:
         case int() | float(), int() | float():
             return w * x
