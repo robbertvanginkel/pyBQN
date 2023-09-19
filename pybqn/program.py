@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import Any, Iterable, List, Optional
 import functools
+import itertools
 
 
 # https://gist.github.com/dzaima/e7b24e10cf6ac33f62bf8cfd80758d4b
@@ -229,6 +230,15 @@ class Body:
                     pc += 1
                 case 0x07:  # RETN
                     return stack.pop()
+                case 0x08:  # RETD
+                    ns = {
+                        k: v
+                        for k, v in zip(
+                            (unstr(self.prog.names[i]) for i in self.names),
+                            itertools.compress(frame.slots[-len(self.exported):], self.exported),
+                        )
+                    }
+                    return ns
                 case 0x0B | 0x0C:  # LSTO, LSTM
                     stack.append(Array(stack.popn(self.prog.bc[pc + 1])))
                     pc += 2
@@ -321,6 +331,8 @@ class Body:
                         raise BQNError(
                             f"key lookup is not a namespace '{type(ns)}'"
                         ) from None
+                    except KeyError:
+                        raise BQNError(f"unknown namespace key'{name}'") from None
                     pc += 2
                 case _:
                     raise Exception(

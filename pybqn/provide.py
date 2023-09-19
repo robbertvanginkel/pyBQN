@@ -25,6 +25,8 @@ def ptype(_s, x, _w):
             return 4
         case Modifier(type=Block.Type.N2MOD, bound=False):
             return 5
+        case dict():
+            return 6
         case _:
             if callable(x):
                 return 3
