@@ -19,4 +19,6 @@ This is a toy interpreter to better understand the language and VM. If you're lo
   - Fail: header, namespace, syntax, unhead
 
 # License
-The python code is licensed as MIT. Some unittests used to validate the VM/runtime before it could host the compiler contain pre-compiled snippets from the https://github.com/mlochbaum/BQN repo, see the respective license there.
+The python code is licensed as MIT. 
+
+Some unittests used to validate the VM/runtime before it could host the compiler contain pre-compiled snippets from the https://github.com/mlochbaum/BQN repo, see the respective license there.
